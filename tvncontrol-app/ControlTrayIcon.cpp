@@ -33,7 +33,6 @@
 #include "ControlCommand.h"
 #include "UpdateLocalConfigCommand.h"
 
-#include "util/ResourceLoader.h"
 #include "util/StringTable.h"
 #include "util/MacroCommand.h"
 
@@ -42,6 +41,17 @@
 #include <crtdbg.h>
 
 UINT ControlTrayIcon::WM_USER_TASKBAR;
+
+namespace
+{
+  HICON loadTrayIcon(UINT resourceId)
+  {
+    // Load the small resource directly so the shell need not shrink a large icon.
+    return static_cast<HICON>(LoadImage(GetModuleHandle(NULL),
+      MAKEINTRESOURCE(resourceId), IMAGE_ICON,
+      GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), 0));
+  }
+}
 
 ControlTrayIcon::ControlTrayIcon(ControlProxy *serverControl,
                                  Notificator *notificator,
@@ -53,11 +63,9 @@ ControlTrayIcon::ControlTrayIcon(ControlProxy *serverControl,
   m_inWindowProc(false),
   m_termination(false)
 {
-  ResourceLoader *resLoader = ResourceLoader::getInstance();
-
-  m_iconWorking = new Icon(resLoader->loadIcon(MAKEINTRESOURCE(IDI_CONNECTED)));
-  m_iconIdle = new Icon(resLoader->loadIcon(MAKEINTRESOURCE(IDI_IDLE)));
-  m_iconDisabled = new Icon(resLoader->loadIcon(MAKEINTRESOURCE(IDI_DISABLED)));
+  m_iconWorking = new Icon(loadTrayIcon(IDI_CONNECTED));
+  m_iconIdle = new Icon(loadTrayIcon(IDI_IDLE));
+  m_iconDisabled = new Icon(loadTrayIcon(IDI_DISABLED));
 
   setWindowProcHolder(this);
 

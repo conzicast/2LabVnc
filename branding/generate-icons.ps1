@@ -11,6 +11,82 @@ $brandRed = [System.Drawing.ColorTranslator]::FromHtml('#E30613')
 $brandDarkRed = [System.Drawing.ColorTranslator]::FromHtml('#A4000B')
 $securityGreen = [System.Drawing.ColorTranslator]::FromHtml('#20A447')
 $white = [System.Drawing.Color]::White
+$monogramRed = [System.Drawing.ColorTranslator]::FromHtml('#B90018')
+$serverArtwork = Join-Path $PSScriptRoot 'server-large.png'
+
+function Draw-Monogram {
+  param(
+    [System.Drawing.Graphics]$Graphics,
+    [int]$Size,
+    [string]$Variant
+  )
+
+  # Snap the approved 16-pixel artwork to the output grid before filling.
+  $unit = $Size / 16.0
+  $Graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::None
+  $tileColor = if ($Variant -eq 'disabled') { $brandDarkRed } else { $monogramRed }
+  $tileBrush = [System.Drawing.SolidBrush]::new($tileColor)
+  $whiteBrush = [System.Drawing.Brushes]::White
+  try {
+    $shapes = @(
+      @{ Brush = $tileBrush; Vertices = @(1,0, 15,0, 15,1, 16,1, 16,15, 15,15, 15,16, 1,16, 1,15, 0,15, 0,1, 1,1) }
+      @{ Brush = $whiteBrush; Vertices = @(1,1, 4,1, 4,12, 15,12, 15,15, 1,15) }
+      @{ Brush = $whiteBrush; Vertices = @(7,2, 13,2, 13,3, 14,3, 14,6, 12,6, 12,7, 10,7, 10,8, 8,8, 8,9, 14,9, 14,11, 6,11, 6,7, 8,7, 8,6, 10,6, 10,5, 12,5, 12,4, 8,4, 8,5, 6,5, 6,3, 7,3) }
+    )
+    foreach ($shape in $shapes) {
+      [System.Drawing.Point[]]$points = for ($index = 0; $index -lt $shape.Vertices.Count; $index += 2) {
+        [System.Drawing.Point]::new(
+          [Math]::Round($shape.Vertices[$index] * $unit),
+          [Math]::Round($shape.Vertices[$index + 1] * $unit))
+      }
+      $Graphics.FillPolygon($shape.Brush, $points)
+    }
+  } finally {
+    $tileBrush.Dispose()
+  }
+
+  if ($Variant -in @('connected', 'disabled')) {
+    Draw-TrayBadge $Graphics $Size $Variant
+  }
+}
+
+function Draw-TrayBadge {
+  param([System.Drawing.Graphics]$Graphics, [int]$Size, [string]$Variant)
+
+  # Cover only the end of the L, leaving the 2 intact at tray sizes.
+  $badgeSize = [int][Math]::Round($Size * 5 / 16.0)
+  $left = $Size - $badgeSize
+  $Graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+  if ($Variant -eq 'connected') {
+    $greenBrush = [System.Drawing.SolidBrush]::new($securityGreen)
+    $badgeOutline = [System.Drawing.Pen]::new([System.Drawing.Color]::White, $Size / 20.0)
+    [System.Drawing.PointF[]]$shield = @(
+      [System.Drawing.PointF]::new($left + $badgeSize * 0.5, $left + 0.5),
+      [System.Drawing.PointF]::new($Size - 0.5, $left + $badgeSize * 0.25),
+      [System.Drawing.PointF]::new($Size - 0.8, $left + $badgeSize * 0.65),
+      [System.Drawing.PointF]::new($left + $badgeSize * 0.5, $Size - 0.5),
+      [System.Drawing.PointF]::new($left + 0.8, $left + $badgeSize * 0.65),
+      [System.Drawing.PointF]::new($left + 0.5, $left + $badgeSize * 0.25))
+    try {
+      $Graphics.FillPolygon($greenBrush, $shield)
+      $Graphics.DrawPolygon($badgeOutline, $shield)
+    } finally {
+      $badgeOutline.Dispose()
+      $greenBrush.Dispose()
+    }
+  } else {
+    $Graphics.FillEllipse([System.Drawing.Brushes]::White, $left, $left, $badgeSize, $badgeSize)
+    $inset = [Math]::Max(1, $Size / 16.0)
+    $inside = $badgeSize - 2 * $inset
+    $Graphics.FillEllipse([System.Drawing.Brushes]::DimGray, $left + $inset, $left + $inset, $inside, $inside)
+    $slash = [System.Drawing.Pen]::new([System.Drawing.Color]::White, $inset)
+    try {
+      $Graphics.DrawLine($slash, $left + $inset, $left + $inset, $Size - $inset, $Size - $inset)
+    } finally {
+      $slash.Dispose()
+    }
+  }
+}
 
 function New-RoundedRectanglePath {
   param(
@@ -163,6 +239,23 @@ function New-IconBitmap {
   $graphics.TextRenderingHint = [System.Drawing.Text.TextRenderingHint]::AntiAliasGridFit
   $graphics.Clear([System.Drawing.Color]::Transparent)
 
+  if ($Size -lt 128) {
+    Draw-Monogram $graphics $Size $Variant
+    $graphics.Dispose()
+    return $bitmap
+  }
+  if ($Variant -eq 'server') {
+    $source = [System.Drawing.Image]::FromFile($serverArtwork)
+    try {
+      $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+      $graphics.DrawImage($source, 0, 0, $Size, $Size)
+    } finally {
+      $source.Dispose()
+      $graphics.Dispose()
+    }
+    return $bitmap
+  }
+
   $backgroundColor = if ($Variant -eq 'disabled') { $brandDarkRed } else { $brandRed }
   $backgroundBrush = [System.Drawing.SolidBrush]::new($backgroundColor)
   $whiteBrush = [System.Drawing.SolidBrush]::new($white)
@@ -257,8 +350,8 @@ function Write-AboutBitmap {
   $graphics.Clear([System.Drawing.Color]::White)
   $graphics.InterpolationMode =
     [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
-  $source = New-IconBitmap 256 $Variant
   $side = [Math]::Min($Width, $Height)
+  $source = New-IconBitmap $side $Variant
   $left = [int](($Width - $side) / 2)
   $graphics.DrawImage($source, $left, 0, $side, $side)
   $canvas.Save($Path, [System.Drawing.Imaging.ImageFormat]::Bmp)
@@ -277,22 +370,22 @@ foreach ($variant in $variants) {
 }
 
 Write-AboutBitmap `
-  (Join-Path $ProjectRoot 'tightvnc-2.8.90-gpl\tvnserver\res\tightvnc.bmp') `
+  (Join-Path $ProjectRoot 'tvnserver\res\tightvnc.bmp') `
   60 55 'server'
 Write-AboutBitmap `
-  (Join-Path $ProjectRoot 'tightvnc-2.8.90-gpl\tvnviewer\res\tightvnc.bmp') `
+  (Join-Path $ProjectRoot 'tvnviewer\res\tightvnc.bmp') `
   60 55 'viewer'
 Write-AboutBitmap `
-  (Join-Path $ProjectRoot 'tightvnc-2.8.90-gpl\tvnviewer\res\tightvnc48.bmp') `
+  (Join-Path $ProjectRoot 'tvnviewer\res\tightvnc48.bmp') `
   32 30 'viewer'
 
 $copyTargets = @{
-  (Join-Path $ProjectRoot 'tightvnc-2.8.90-gpl\tvnviewer\res\appicon.ico') = 'viewer'
-  (Join-Path $ProjectRoot 'tightvnc-2.8.90-gpl\tvnserver\res\idle.ico') = 'server'
-  (Join-Path $ProjectRoot 'tightvnc-2.8.90-gpl\tvnserver\res\connected.ico') = 'connected'
-  (Join-Path $ProjectRoot 'tightvnc-2.8.90-gpl\tvnserver\res\disabled.ico') = 'disabled'
-  (Join-Path $ProjectRoot 'tightvnc-2.8.90-gpl\wix-installer\tvnserver.ico') = 'server'
-  (Join-Path $ProjectRoot 'tightvnc-2.8.90-gpl\wix-installer\vncviewer.ico') = 'viewer'
+  (Join-Path $ProjectRoot 'tvnviewer\res\appicon.ico') = 'viewer'
+  (Join-Path $ProjectRoot 'tvnserver\res\idle.ico') = 'server'
+  (Join-Path $ProjectRoot 'tvnserver\res\connected.ico') = 'connected'
+  (Join-Path $ProjectRoot 'tvnserver\res\disabled.ico') = 'disabled'
+  (Join-Path $ProjectRoot 'wix-installer\tvnserver.ico') = 'server'
+  (Join-Path $ProjectRoot 'wix-installer\vncviewer.ico') = 'viewer'
 }
 foreach ($target in $copyTargets.Keys) {
   Copy-Item -LiteralPath (Join-Path $outputDirectory "2labvnc-$($copyTargets[$target]).ico") `
