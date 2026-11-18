@@ -1,0 +1,189 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi"
+     xmlns:fire="http://schemas.microsoft.com/wix/FirewallExtension"
+     xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
+  <Fragment>
+    <?include product_definitions.wxi?>
+
+    <DirectoryRef Id="INSTALLDIR" DiskId="1">
+      <!-- tvnserver with shortcuts -->
+      <?ifndef SERVER_FREE ?>
+      <Component Id='ServerExe' Guid='{ED28A76A-AE7E-4D4C-9EFC-FE48C8A3B96A}'>
+        <ServiceControl Id="ServiceRemover"
+                        Name="2LabVncServer"
+                        Remove="uninstall"
+                        Stop="uninstall"
+                        Wait="yes" />
+        <!-- tvnserver.exe -->
+        <File Id='tvnserverEXE' Name='2labvnc-server.exe' DiskId='1' Source='$(var.BinFolder)\tvnserver.exe' KeyPath='yes'>
+        </File>
+        <!-- screenhooks -->
+        <File Id='screenHooksFile' Name='screenhooks32.dll' DiskId='1' Source='$(var.SrcFolder)\Release\screenhooks32.dll'/>
+        <?if $(var.Platform) = x64 ?>
+          <File Id='screenHooksFile64' Name='screenhooks64.dll' DiskId='1' Source='$(var.BinFolder)\screenhooks64.dll'/>
+          <File Id='screenHooksLoader' Name='hookldr.exe' DiskId='1' Source='$(var.SrcFolder)\Release\hookldr.exe'/>
+        <?endif ?>
+      </Component>
+      <!--
+      <Component Id='ServiceUnregister' Guid='{4826CC0B-3227-4AD6-BEA6-A09F9FA6921A}' Feature='Server'>
+      </Component>-->
+
+
+      <!-- sas.dll -->
+      <Component Id='SasDll' Guid='{2B8A83B9-A08D-4502-8F2E-9DFFCDFDD853}'>
+        <File Id='sasDllFile' Name='sas.dll' DiskId='1' Source='$(var.AddonBinFolder)\sas.dll' KeyPath='yes'/>
+        <Condition> VersionNT = 600 </Condition>
+      </Component>
+      <?endif ?>
+
+      <?ifndef VIEWER_FREE ?>
+      <Component Id='ViewerExe' Guid='{278985D9-33B5-4D90-B073-A9FB9D58035E}'>
+        <File Id='viewerEXE' Name='2labvnc-viewer.exe' DiskId='1' Source='$(var.BinFolder)\tvnviewer.exe' KeyPath='yes'>
+        </File>
+      </Component>
+      <?endif?>
+
+      <Component Id='LicenseFileComponent' Guid='{4AA0E50E-F243-4667-9DB6-6A2FD27D684D}'>
+        <File Id='LicenseFile' Name='LICENSE.txt' Source='LICENSE.txt'
+              KeyPath='yes'>
+        </File>
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="TARGETDIR" DiskId="1">
+      <!--Viewer file associations -->
+      <?ifndef VIEWER_FREE ?>
+      <Component Id='ViewerFileAssoc' Guid='{1CF70E6A-F6A3-475D-9ECE-65DCC9DD9A1C}'>
+        <RegistryValue Id='vncAssoc1' Root='HKCR' Key='.vnc' Action='write' Type='string' Value='2LabVnc.Config'/>
+        <RegistryValue Id='vncAssoc2' Root='HKCR' Key='2LabVnc.Config' Action='write' Type='string' Value='2LabVnc connection file' />
+        <RegistryValue Id='vncAssoc3' Root='HKCR' Key='2LabVnc.Config\DefaultIcon' Action='write' Type='string' Value='[INSTALLDIR]2labvnc-viewer.exe,0' />
+        <RegistryValue Id='vncAssoc4' Root='HKCR' Key='2LabVnc.Config\shell\open\command' Action='write' Type='string' Value='"[INSTALLDIR]2labvnc-viewer.exe" -optionsfile="%1"' />
+        <Condition>
+          (ASSOCIATE_VNC_EXTENSION = 1 AND <![CDATA[IS_SILENT <> 1]]> OR
+          VIEWER_ASSOCIATE_VNC_EXTENSION = 1 AND IS_SILENT = 1)
+        </Condition>
+      </Component>
+      <?endif?>
+      <!-- Firewall exception -->
+      <!-- Server firewall exception -->
+      <?ifndef SERVER_FREE ?>
+      <Component Id="tvnserverFirewallException" Guid='{93DBCFEB-9AA5-4F3E-B693-C6FFF878E9A3}'>
+        <fire:FirewallException Id="FWX1" Name="$(var.ProductName) Server TCP [VALUE_OF_RFBPORT]"
+                                Port="[VALUE_OF_RFBPORT]" Protocol="tcp" Scope="any"
+                                IgnoreFailure="yes"/>
+        <Condition>
+          (ADD_FIREWALL_EXCEPTION = 1 AND <![CDATA[IS_SILENT <> 1]]> OR
+          SERVER_ADD_FIREWALL_EXCEPTION = 1 AND IS_SILENT = 1)
+        </Condition>
+      </Component>
+      <?endif?>
+    </DirectoryRef>
+
+    <DirectoryRef Id="ProgramMenuDir" DiskId="1">
+      <Component Id="ProgramMenuDir" Guid="{E690AACB-9DFF-4475-95A6-0E82B242B601}">
+        <?ifndef VIEWER_FREE ?>
+        <Shortcut Id="startmenuViewer"
+          Target ="[INSTALLDIR]2labvnc-viewer.exe"
+          Directory="ProgramMenuDir"
+          Name="2LabVnc Viewer"
+          WorkingDirectory='INSTALLDIR'
+          Icon='viewer.ico'
+          IconIndex="0"/>
+        <?endif?>
+        <RemoveFolder Id='ProgramMenuDir' On='uninstall' />
+        <RegistryValue Root='HKCU' Key='Software\[Manufacturer]\[ProductName]1' Type='string' Value='' KeyPath='yes' />
+      </Component>
+    </DirectoryRef>
+    <?ifndef SERVER_FREE ?>
+    <DirectoryRef Id="ServerMenuDir" DiskId="1">
+      <Component Id="ServerMenuDir" Guid="{06DF97FB-A9CB-44A9-954E-2E46DDB7EC7C}">
+        <Shortcut Id="menuTvnServerApp"
+                  Target ="[INSTALLDIR]2labvnc-server.exe"
+                  Directory="ServerMenuDir"
+                  Name="Run 2LabVnc Server"
+                  WorkingDirectory='INSTALLDIR'
+                  Icon='tvnserver.ico'
+                  IconIndex="0"/>
+        <Shortcut Id="menuTvnControlApp"
+                  Target ="[INSTALLDIR]2labvnc-server.exe"
+                  Arguments="-controlapp"
+                  Directory="ServerMenuDir"
+                  Name="2LabVnc Server - Tray and Settings"
+                  WorkingDirectory='INSTALLDIR'
+                  Icon='tvnserver.ico'
+                  IconIndex="0"/>
+        <Shortcut Id="menuTvnOfflineControlApp"
+                  Target ="[INSTALLDIR]2labvnc-server.exe"
+                  Arguments="-configapp"
+                  Directory="ServerMenuDir"
+                  Name="2LabVnc Server - Offline Settings"
+                  WorkingDirectory='INSTALLDIR'
+                  Icon='tvnserver.ico'
+                  IconIndex="0"/>
+        <RemoveFolder Id='ServerMenuDir' On='uninstall' />
+        <RegistryValue Root='HKCU' Key='Software\[Manufacturer]\[ProductName]2' Type='string' Value='' KeyPath='yes' />
+      </Component>
+    </DirectoryRef>
+    <DirectoryRef Id="ServiceMenuDir" DiskId="1">
+      <Component Id="ServiceMenuDir" Guid="{B77595B2-977B-43E7-B8CB-F43E8BD0EFAE}">
+        <Shortcut Id="menuRegisterTvnService"
+                  Target ="[INSTALLDIR]2labvnc-server.exe"
+                  Arguments="-install"
+                  Name="Register 2LabVnc Service"
+                  WorkingDirectory='INSTALLDIR'
+                  Icon='tvnserver.ico'
+                  IconIndex="0"/>
+        <Shortcut Id="menuStartTvnService"
+                  Target ="[INSTALLDIR]2labvnc-server.exe"
+                  Arguments="-start"
+                  Name="Start 2LabVnc Service"
+                  WorkingDirectory='INSTALLDIR'
+                  Icon='tvnserver.ico'
+                  IconIndex="0"/>
+        <Shortcut Id="menuStopTvnService"
+                  Target ="[INSTALLDIR]2labvnc-server.exe"
+                  Arguments="-stop"
+                  Name="Stop 2LabVnc Service"
+                  WorkingDirectory='INSTALLDIR'
+                  Icon='tvnserver.ico'
+                  IconIndex="0"/>
+        <Shortcut Id="menuTvnControlService"
+                  Target ="[INSTALLDIR]2labvnc-server.exe"
+                  Arguments="-controlservice"
+                  Name="2LabVnc Service - Tray and Settings"
+                  WorkingDirectory='INSTALLDIR'
+                  Icon='tvnserver.ico'
+                  IconIndex="0"/>
+        <Shortcut Id="menuTvnOfflineControlService"
+                  Target ="[INSTALLDIR]2labvnc-server.exe"
+                  Arguments="-configservice"
+                  Name="2LabVnc Service - Offline Settings"
+                  WorkingDirectory='INSTALLDIR'
+                  Icon='tvnserver.ico'
+                  IconIndex="0"/>
+        <Shortcut Id="menuUnregisterTvnService"
+                  Target ="[INSTALLDIR]2labvnc-server.exe"
+                  Arguments="-remove"
+                  Name="Unregister 2LabVnc Service"
+                  WorkingDirectory='INSTALLDIR'
+                  Icon='tvnserver.ico'
+                  IconIndex="0"/>
+        <RemoveFolder Id='ServiceMenuDir' On='uninstall' />
+        <RegistryValue Root='HKCU' Key='Software\[Manufacturer]\[ProductName]3' Type='string' Value='' KeyPath='yes' />
+      </Component>
+    </DirectoryRef>
+    <?endif?>
+
+    <!-- Changing permissions of the Tight Log folder that
+         should be shared for all users on the tight application mode -->
+    <DirectoryRef Id="TightProgramDataFolder" DiskId="1">
+      <Component Id="LogFolderPermissions"
+                 Guid="{9483548C-8A86-4E2D-B3A9-7BA5DB7CBF4F}">
+        <CreateFolder>
+          <util:PermissionEx User="Everyone" GenericAll="yes" ChangePermission="yes"/>
+        </CreateFolder>
+      </Component>
+    </DirectoryRef>
+
+  </Fragment>
+</Wix>

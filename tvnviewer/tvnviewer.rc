@@ -1,0 +1,564 @@
+﻿// Microsoft Visual C++ generated resource script.
+//
+#include "resource.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+//#include "afxres.h"
+#include "winres.h"
+
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// Английский (США) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_ABOUT_DIALOG DIALOGEX 0, 0, 308, 138
+STYLE DS_SETFONT | DS_MODALFRAME | DS_3DLOOK | DS_CENTER | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+CAPTION "About 2LabVnc Viewer"
+FONT 8, "Ms Shell Dlg 2", 0, 0, 0x0
+BEGIN
+    CONTROL         IDB_LOGO_BIG,IDC_STATIC,"Static",SS_BITMAP | WS_GROUP,24,14,60,55
+    LTEXT           "2LabVnc Viewer for Windows",IDC_STATIC,107,12,189,10
+    LTEXT           "Version unknown, build time unknown",IDC_STATIC_VERSION,107,20,189,10
+    LTEXT           "Copyright (C) 2026 2lab snc.\nBased on TightVNC 2.x by GlavSoft LLC.",IDC_STATIC,107,38,189,19
+    LTEXT           "",IDC_STATIC_LICENSING,107,64,189,10
+    LTEXT           "2LabVnc is an independent GPLv2 fork of TightVNC 2.x.\nIt adds mandatory AES-256-GCM transport encryption with ECDH P-256 and PBKDF2-HMAC-SHA-256 authentication.",IDC_STATIC,13,81,283,26
+    DEFPUSHBUTTON   "Visit the Web Site",IDC_VISIT_WEB_SITE_BUTTON,7,116,94,15,WS_GROUP
+    PUSHBUTTON      "Project and License",IDC_ORDER_SUPPORT_BUTTON,107,116,94,15
+    PUSHBUTTON      "Close This Window",IDCANCEL,207,116,94,15
+END
+
+ftclient_createFolderDialog DIALOGEX 0, 0, 174, 57
+STYLE DS_SETFONT | DS_MODALFRAME | DS_3DLOOK | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+CAPTION "New Folder"
+FONT 8, "Ms Shell Dlg 2", 0, 0, 0x0
+BEGIN
+    LTEXT           "Enter new folder name:",IDC_LABEL,6,6,156,8
+    EDITTEXT        IDC_FILENAME_EDIT,6,18,162,12,ES_AUTOHSCROLL | WS_GROUP
+    DEFPUSHBUTTON   "OK",IDOK,33,36,50,15,WS_GROUP
+    PUSHBUTTON      "Cancel",IDCANCEL,90,36,50,15
+END
+
+ftclient_fileExistDialog DIALOGEX 0, 0, 323, 79
+STYLE DS_SETFONT | DS_MODALFRAME | DS_3DLOOK | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+CAPTION "Warning"
+FONT 8, "Ms Shell Dlg 2", 0, 0, 0x0
+BEGIN
+    CTEXT           "WARNING: File already exists.",IDC_STATIC,103,5,111,8
+    LTEXT           "This label should contain full filename of the conflicted file.",IDC_FILENAME_LABEL,5,18,307,8
+    LTEXT           "New:",IDC_STATIC,17,31,19,10
+    LTEXT           "Existing:",IDC_STATIC,17,44,33,10
+    LTEXT           "Size1",IDC_SIZE1_LABEL,127,31,106,10
+    LTEXT           "Size2",IDC_SIZE2_LABEL,127,44,106,10
+    LTEXT           "Date1",IDC_DATE1_LABEL,238,31,74,10
+    LTEXT           "Date2",IDC_DATE2_LABEL,238,44,74,10
+    DEFPUSHBUTTON   "Overwrite",IDC_OVERWRITE_BUTTON,4,58,50,15,WS_GROUP
+    PUSHBUTTON      "Overwrite All",IDC_OVERWRITE_ALL_BUTTON,57,58,50,15
+    PUSHBUTTON      "Skip",IDC_SKIP_BUTTON,110,58,50,15
+    PUSHBUTTON      "Skip All",IDC_SKIP_ALL_BUTTON,163,58,50,15
+    PUSHBUTTON      "Append",IDC_APPEND_BUTTON,216,58,50,15
+    PUSHBUTTON      "Stop",IDC_CANCEL_BUTTON,269,58,50,15
+END
+
+ftclient_mainDialog DIALOGEX 0, 0, 503, 320
+STYLE DS_SETFONT | DS_MODALFRAME | DS_3DLOOK | DS_CENTER | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+CAPTION "2LabVnc File Transfer"
+FONT 8, "Ms Shell Dlg 2", 0, 0, 0x0
+BEGIN
+    LTEXT           "Local Computer (Viewer)",IDC_STATIC,5,4,226,10
+    EDITTEXT        IDC_LOCAL_CURRENT_FOLDER_EDIT,5,16,226,12,ES_AUTOHSCROLL | ES_READONLY | NOT WS_TABSTOP
+    CONTROL         "",IDC_LOCAL_FILE_LIST,"SysListView32",LVS_REPORT | LVS_SHOWSELALWAYS | LVS_ALIGNLEFT | WS_BORDER | WS_GROUP | WS_TABSTOP,5,34,226,215
+    PUSHBUTTON      "Rename",IDC_RENAME_LOCAL_BUTTON,10,253,50,15,WS_GROUP
+    PUSHBUTTON      "Mkdir",IDC_MKDIR_LOCAL_BUTTON,65,253,50,15
+    PUSHBUTTON      "Remove",IDC_REMOVE_LOCAL_BUTTON,120,253,50,15
+    PUSHBUTTON      "Refresh",IDC_REFRESH_LOCAL_BUTTON,175,253,50,15
+    PUSHBUTTON      ">>",IDC_UPLOAD_BUTTON,235,111,33,22,WS_GROUP
+    PUSHBUTTON      "<<",IDC_DOWNLOAD_BUTTON,235,138,33,22
+    LTEXT           "Remote Computer (Server)",IDC_STATIC,272,4,226,10
+    EDITTEXT        IDC_REMOTE_CURRENT_FOLDER_EDIT,272,16,226,12,ES_AUTOHSCROLL | ES_READONLY | NOT WS_TABSTOP
+    CONTROL         "",IDC_REMOTE_FILE_LIST,"SysListView32",LVS_REPORT | LVS_SHOWSELALWAYS | LVS_ALIGNLEFT | WS_BORDER | WS_TABSTOP,272,34,226,215
+    PUSHBUTTON      "Rename",IDC_RENAME_REMOTE_BUTTON,277,253,50,15,WS_GROUP
+    PUSHBUTTON      "Mkdir",IDC_MKDIR_REMOTE_BUTTON,332,253,50,15
+    PUSHBUTTON      "Remove",IDC_REMOVE_REMOTE_BUTTON,387,253,50,15
+    PUSHBUTTON      "Refresh",IDC_REFRESH_REMOTE_BUTTON,442,253,50,15
+    COMBOBOX        IDC_LOG_COMBO,6,281,492,77,CBS_DROPDOWNLIST | CBS_HASSTRINGS | WS_GROUP
+    CONTROL         "",IDC_TOTAL_PROGRESS,"msctls_progress32",WS_GROUP,6,299,437,15
+    PUSHBUTTON      "Cancel",IDC_CANCEL_BUTTON,448,299,50,15,WS_GROUP
+END
+
+IDD_CMDLINE DIALOGEX 0, 0, 280, 204
+STYLE DS_SETFONT | DS_MODALFRAME | DS_3DLOOK | DS_CENTER | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+CAPTION "2LabVnc Viewer - Command Line Help"
+FONT 8, "Ms Shell Dlg 2", 0, 0, 0x0
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,115,183,50,14,BS_CENTER | WS_GROUP
+    EDITTEXT        IDC_SHELP,7,9,266,168,ES_MULTILINE | ES_AUTOVSCROLL | ES_AUTOHSCROLL | ES_READONLY | WS_VSCROLL | WS_GROUP
+END
+
+IDD_CONFIGURATION DIALOGEX 0, 0, 221, 216
+STYLE DS_SETFONT | DS_MODALFRAME | DS_3DLOOK | DS_CENTER | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+CAPTION "2LabVnc Viewer Configuration"
+FONT 8, "Ms Shell Dlg 2", 0, 0, 0x0
+BEGIN
+    GROUPBOX        "User Interface",IDC_STATIC,7,7,207,42,WS_GROUP
+    CONTROL         "Show toolbars by default",IDC_CSHOWTOOLBARS,"Button",BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP,16,19,110,10
+    CONTROL         "Warn at switching  to the full-screen mode",IDC_CWARNATSW,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,16,33,160,10
+    GROUPBOX        "Connections",IDC_STATIC,7,53,207,50,WS_GROUP
+    LTEXT           "Number of connections to remember:",IDC_STATIC,16,65,127,10
+    EDITTEXT        IDC_ENUMCON,151,63,43,12,ES_AUTOHSCROLL | ES_NUMBER | WS_GROUP
+    CONTROL         "",IDC_SNUMCON,"msctls_updown32",UDS_SETBUDDYINT | UDS_ALIGNRIGHT | UDS_ARROWKEYS | UDS_NOTHOUSANDS,203,61,11,14
+    PUSHBUTTON      "Clear the list of saved connections",IDC_BCLEAR_LIST,51,81,119,14,WS_GROUP
+    GROUPBOX        "Listening Mode",IDC_STATIC,7,107,207,29,WS_GROUP
+    LTEXT           "Accept reverse connections on TCP port:",IDC_STATIC,16,119,132,10
+    EDITTEXT        IDC_EREVCON,151,117,43,12,ES_AUTOHSCROLL | ES_NUMBER
+    CONTROL         "",IDC_SREVCON,"msctls_updown32",UDS_SETBUDDYINT | UDS_ALIGNRIGHT | UDS_ARROWKEYS | UDS_NOTHOUSANDS,203,115,11,14
+    GROUPBOX        "Logging",IDC_STATIC,7,141,207,48
+    LTEXT           "Log verbosity level (0 disables logging):",IDC_STATIC,16,154,131,10
+    EDITTEXT        IDC_EVERBLVL,151,151,33,13,ES_AUTOHSCROLL | ES_NUMBER
+    CONTROL         "",IDC_SVERBLVL,"msctls_updown32",UDS_SETBUDDYINT | UDS_ALIGNRIGHT | UDS_AUTOBUDDY | UDS_ARROWKEYS | UDS_NOTHOUSANDS,203,150,11,14
+    LTEXT           "Log file:",IDC_STATIC,16,171,27,10
+    EDITTEXT        IDC_ELOGGING,50,169,117,12,ES_AUTOHSCROLL | ES_READONLY | WS_GROUP
+    PUSHBUTTON      "Locate",IDC_OPEN_LOG_FOLDER_BUTTON,173,168,34,14,WS_GROUP
+    DEFPUSHBUTTON   "OK",IDOK,56,195,50,14,WS_GROUP
+    PUSHBUTTON      "Cancel",IDCANCEL,116,195,50,14
+END
+
+IDD_DAUTH DIALOGEX 0, 0, 186, 73
+STYLE DS_SETFONT | DS_MODALFRAME | DS_3DLOOK | DS_CENTER | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+CAPTION "Vnc Authentication"
+FONT 8, "Ms Shell Dlg 2", 0, 0, 0x0
+BEGIN
+    LTEXT           "Connected to:",IDC_STATIC,16,13,51,10
+    EDITTEXT        IDC_EHOST,70,11,101,12,ES_AUTOHSCROLL | ES_READONLY
+    LTEXT           "Password:",IDC_STATIC,16,31,51,10
+    EDITTEXT        IDC_EPASSW,70,29,101,12,ES_PASSWORD | ES_AUTOHSCROLL
+    DEFPUSHBUTTON   "OK",IDOK,37,52,50,14,WS_GROUP
+    PUSHBUTTON      "Cancel",IDCANCEL,97,52,50,14
+END
+
+IDD_LOGINDIALOG DIALOGEX 0, 0, 284, 172
+STYLE DS_SETFONT | DS_MODALFRAME | DS_3DLOOK | DS_CENTER | WS_MINIMIZEBOX | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+CAPTION "New 2LabVnc Connection"
+FONT 8, "Ms Shell Dlg 2", 0, 0, 0x0
+BEGIN
+    GROUPBOX        "Connection",IDC_STATIC,7,7,270,50,WS_GROUP
+    LTEXT           "Remote Host:",IDC_SSERVER,16,20,51,10
+    COMBOBOX        IDC_CSERVER,69,18,133,37,CBS_DROPDOWN | CBS_AUTOHSCROLL | CBS_HASSTRINGS | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Enter a name or an IP address. To specify a port number, append it after two colons (for example, mypc::5902).",IDC_STATIC,16,34,186,18
+    GROUPBOX        "Reverse Connections",IDC_STATIC,7,62,270,34
+    LTEXT           "Listening mode allows people to attach your viewer to their desktops. Viewer will wait for incoming connections.",IDC_STATIC,16,73,186,18,NOT WS_GROUP
+    GROUPBOX        "2LabVnc Viewer",IDC_STATIC,7,101,270,64
+    CONTROL         IDB_LOGO_48,IDC_STATIC,"Static",SS_BITMAP,22,119,32,30
+    LTEXT           "2LabVnc is cross-platform remote control software.",IDC_STATIC,69,111,200,10,NOT WS_GROUP
+    LTEXT           "Its source code is available to everyone, either freely\n(GNU GPL license) or commercially (with no GPL restrictions).",IDC_STATIC,69,122,200,18,NOT WS_GROUP
+    DEFPUSHBUTTON   "Connect",IDOK,209,17,60,14,WS_GROUP
+    PUSHBUTTON      "&Options...",IDC_BOPTIONS,209,36,60,14
+    PUSHBUTTON      "&Listening mode",IDC_LISTENING,209,74,60,14
+    PUSHBUTTON      "&Version info...",IDC_BABOUT,69,144,60,14
+    PUSHBUTTON      "Licensing",IDC_ORDER_SUPPORT_BUTTON,139,144,60,14
+    PUSHBUTTON      "Configure...",IDC_BCONFIGURATION,209,144,60,14
+END
+
+IDD_OPTIONS DIALOGEX 0, 0, 303, 262
+STYLE DS_SETFONT | DS_MODALFRAME | DS_3DLOOK | DS_CENTER | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+CAPTION "Connection Options"
+FONT 8, "Ms Shell Dlg 2", 0, 0, 0x0
+BEGIN
+    GROUPBOX        "Format and Encodings",IDC_STATIC,7,7,140,147,WS_GROUP
+    LTEXT           "Preferred encoding:",IDC_STATIC,16,20,66,10
+    COMBOBOX        IDC_CUSEENC,91,18,47,44,CBS_DROPDOWNLIST | CBS_HASSTRINGS | WS_TABSTOP
+    CONTROL         "256 colors (less traffic)",IDC_CEIGHTBIT,"Button",BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP,16,36,122,10
+    CONTROL         "Set custom compression level:",IDC_CCOMPRLVL,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,16,50,122,10
+    RTEXT           "fast",IDC_SFAST,16,71,18,10
+    CONTROL         "",IDC_SCOMP,"msctls_trackbar32",TBS_AUTOTICKS | WS_TABSTOP,34,62,82,19
+    LTEXT           "best",IDC_SBEST,116,71,22,10,NOT WS_GROUP
+    RTEXT           "level:",IDC_STQUALITY,34,81,45,10,NOT WS_GROUP
+    LTEXT           "6",IDC_SQUALITY,82,81,8,10,NOT WS_GROUP
+    CONTROL         "Allow JPEG, set image quality:",IDC_CJPEG,"Button",BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP,16,94,122,10
+    RTEXT           "poor",IDC_SPOOR,16,115,18,10
+    CONTROL         "",IDC_SJPEG,"msctls_trackbar32",TBS_AUTOTICKS | WS_TABSTOP,34,106,82,19
+    LTEXT           "best",IDC_SBEST2,116,115,22,10,NOT WS_GROUP
+    RTEXT           "quality:",IDC_STQUALITY2,34,125,45,10,NOT WS_GROUP
+    LTEXT           "6",IDC_SQUALITY2,82,125,8,10,NOT WS_GROUP
+    CONTROL         "Allow CopyRect encoding",IDC_CCOPYRECT,"Button",BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP,16,138,122,10
+    GROUPBOX        "Restrictions",IDC_STATIC,7,159,140,43,WS_GROUP
+    CONTROL         "View only (inputs ignored)",IDC_CVIEWONLY,"Button",BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP,16,171,122,10
+    CONTROL         "Disable clipboard transfer",IDC_CDISCLIP,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,16,185,122,10
+    GROUPBOX        "Display",IDC_STATIC,156,7,140,58,WS_GROUP
+    LTEXT           "Scale by:",IDC_STATIC,164,20,30,10,NOT WS_GROUP
+    COMBOBOX        IDC_CSCALE,199,18,38,46,CBS_DROPDOWN | CBS_HASSTRINGS | WS_TABSTOP
+    LTEXT           "%",IDC_STATIC,242,20,8,10,NOT WS_GROUP
+    CONTROL         "Full-screen mode",IDC_CFULLSCR,"Button",BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP,164,36,124,10
+    CONTROL         "Deiconify on remote Bell event",IDC_CDEICONFY,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,164,50,124,10
+    GROUPBOX        "Mouse",IDC_STATIC,156,69,140,27,WS_GROUP
+    CONTROL         "Swap right and middle buttons",IDC_CSWAPMOUSE,"Button",BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP,163,80,124,10
+    GROUPBOX        "Mouse Cursor",IDC_STATIC,156,100,140,54,WS_GROUP
+    CONTROL         "Track remote cursor locally",IDC_RTRACK,"Button",BS_AUTORADIOBUTTON | WS_GROUP,164,112,124,10
+    CONTROL         "Let remote server deal with cursor",IDC_RCURSOR,"Button",BS_AUTORADIOBUTTON,164,125,124,10
+    CONTROL         "Don't show remote cursor",IDC_RNCURSOR,"Button",BS_AUTORADIOBUTTON,164,138,124,10
+    GROUPBOX        "Local Cursor Shape",IDC_STATIC,156,159,140,43,WS_GROUP
+    CONTROL         "Normal dot",IDC_RDOT,"Button",BS_AUTORADIOBUTTON | WS_GROUP,164,172,54,10
+    CONTROL         "Small dot",IDC_RSMALLDOT,"Button",BS_AUTORADIOBUTTON,164,185,54,10
+    CONTROL         "Arrow",IDC_RARROW,"Button",BS_AUTORADIOBUTTON,226,172,62,10
+    CONTROL         "Do not show",IDC_RNLOCAL,"Button",BS_AUTORADIOBUTTON,226,185,62,10
+    GROUPBOX        "Connecting",IDC_STATIC,7,206,289,29,WS_GROUP
+    CONTROL         "Request shared session (keep clients already connected to the same server)",IDC_CSHAREDSES,
+                    "Button",BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP,16,218,272,10
+    DEFPUSHBUTTON   "OK",IDOK,97,241,50,14,WS_GROUP
+    PUSHBUTTON      "Cancel",IDCANCEL,156,241,50,14
+END
+
+IDD_FS_WARNING DIALOGEX 0, 0, 213, 84
+STYLE DS_SETFONT | DS_MODALFRAME | DS_3DLOOK | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+CAPTION "Entering Full-Screen Mode"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "ОК",IDOK,81,63,50,14
+    LTEXT           "To exit from the full-screen mode, press Ctrl+Alt+Shift+F.",IDC_STATIC,26,14,180,25,NOT WS_GROUP
+    CONTROL         "Do not show this message again",IDC_CWARN_FS,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,49,44,142,10
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO
+BEGIN
+    IDD_ABOUT_DIALOG, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 301
+        VERTGUIDE, 107
+        VERTGUIDE, 296
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 131
+        HORZGUIDE, 116
+    END
+
+    ftclient_createFolderDialog, DIALOG
+    BEGIN
+    END
+
+    IDD_CMDLINE, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 273
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 197
+    END
+
+    IDD_CONFIGURATION, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 214
+        VERTGUIDE, 16
+        VERTGUIDE, 151
+        VERTGUIDE, 194
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 209
+        HORZGUIDE, 75
+        HORZGUIDE, 129
+        HORZGUIDE, 164
+        HORZGUIDE, 181
+    END
+
+    IDD_DAUTH, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 179
+        VERTGUIDE, 16
+        VERTGUIDE, 67
+        VERTGUIDE, 70
+        VERTGUIDE, 171
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 66
+        HORZGUIDE, 23
+        HORZGUIDE, 41
+    END
+
+    IDD_LOGINDIALOG, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 277
+        VERTGUIDE, 16
+        VERTGUIDE, 69
+        VERTGUIDE, 202
+        VERTGUIDE, 269
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 165
+        HORZGUIDE, 30
+        HORZGUIDE, 158
+    END
+
+    IDD_OPTIONS, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 296
+        VERTGUIDE, 16
+        VERTGUIDE, 34
+        VERTGUIDE, 79
+        VERTGUIDE, 82
+        VERTGUIDE, 116
+        VERTGUIDE, 138
+        VERTGUIDE, 147
+        VERTGUIDE, 156
+        VERTGUIDE, 164
+        VERTGUIDE, 218
+        VERTGUIDE, 226
+        VERTGUIDE, 288
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 255
+        HORZGUIDE, 18
+        HORZGUIDE, 30
+        HORZGUIDE, 36
+        HORZGUIDE, 50
+        HORZGUIDE, 81
+        HORZGUIDE, 125
+        HORZGUIDE, 148
+        HORZGUIDE, 154
+        HORZGUIDE, 159
+        HORZGUIDE, 185
+        HORZGUIDE, 202
+    END
+
+    IDD_FS_WARNING, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 206
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 77
+    END
+
+END
+#endif    // APSTUDIO_INVOKED
+
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE 
+BEGIN
+    "#include ""winres.h""\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE 
+BEGIN
+    "\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Bitmap
+//
+
+IDB_TOOLBAR             BITMAP                  "res\\toolbar.bmp"
+IDB_LOGO_BIG            BITMAP                  "res\\tightvnc.bmp"
+IDB_LOGO_48             BITMAP                  "res\\tightvnc48.bmp"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Cursor
+//
+
+IDI_CDOT                CURSOR                  "res\\dot.cur"
+IDI_CNOCURSOR           CURSOR                  "res\\nocursor.cur"
+IDI_CSMALLDOT           CURSOR                  "res\\smalldot.cur"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Icon
+//
+
+// Icon with lowest ID value placed first to ensure application icon
+// remains consistent on all systems.
+IDI_APPICON             ICON                    "res\\appicon.ico"
+IDI_FILE_ICON           ICON                    "res\\ftfile.ico"
+IDI_FILEUP              ICON                    "res\\fileup.ico"
+IDI_FOLDER_ICON         ICON                    "res\\ftdir.ico"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Version
+//
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION 1,0,0,0
+ PRODUCTVERSION 1,0,0,0
+ FILEFLAGSMASK 0x17L
+#ifdef _DEBUG
+ FILEFLAGS 0x1L
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS 0x4L
+ FILETYPE 0x1L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0"
+        BEGIN
+            VALUE "CompanyName", "2lab snc"
+            VALUE "FileDescription", "2LabVnc Viewer"
+            VALUE "FileVersion", "1, 0, 0, 0"
+            VALUE "InternalName", "2labvnc-viewer"
+            VALUE "LegalCopyright", "Copyright (C) 2026 2lab snc; based on TightVNC 2.x"
+            VALUE "OriginalFilename", "2labvnc-viewer.exe"
+            VALUE "ProductName", "2LabVnc"
+            VALUE "ProductVersion", "1, 0, 0, 0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Accelerator
+//
+
+IDR_ACCEL_APP_KEYS ACCELERATORS
+BEGIN
+    "O",            ID_CONN_OPTIONS,        VIRTKEY, SHIFT, CONTROL, ALT, NOINVERT
+    "I",            ID_CONN_INFO,           VIRTKEY, SHIFT, CONTROL, ALT, NOINVERT
+    "T",            ID_SHOW_TOOLBAR,        VIRTKEY, SHIFT, CONTROL, ALT, NOINVERT
+    "F",            ID_FULL_SCR,            VIRTKEY, SHIFT, CONTROL, ALT, NOINVERT
+    "R",            ID_REQ_SCR_REFRESH,     VIRTKEY, SHIFT, CONTROL, ALT, NOINVERT
+    VK_DELETE,      ID_CTRL_ALT_DEL,        VIRTKEY, SHIFT, CONTROL, ALT, NOINVERT
+    "E",            ID_TRANSF_FILES,        VIRTKEY, SHIFT, CONTROL, ALT, NOINVERT
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// AFX_DIALOG_LAYOUT
+//
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// String Table
+//
+
+STRINGTABLE
+BEGIN
+    IDS_TB_NEWCONNECTION    "New connection..."
+    IDS_TB_SAVESESSION      "Save session to a .vnc file..."
+    IDS_TB_CONNOPTIONS      "Connection &options...\tCtrl+Alt+Shift+O"
+    IDS_TB_CONNINFO         "Connection &info...\tCtrl+Alt+Shift+I"
+    IDS_TB_PAUSE            "Pause"
+    IDS_TB_REFRESH          "Request screen &refresh\tCtrl+Alt+Shift+R"
+    IDS_TB_CTRLALTDEL       "Send Ctrl+Alt+&Del\tCtrl+Alt+Shift+Del"
+    IDS_TB_CTRLESC          "Send Ctrl-Esc"
+END
+
+STRINGTABLE
+BEGIN
+    IDS_TB_CTRL             "Ctrl key down"
+    IDS_TB_ALT              "Alt key down"
+    IDS_TB_TRANSFER         "Transf&er files...\tCtrl+Alt+Shift+E"
+    IDS_TB_SCALEIN          "Scale in"
+    IDS_TB_SCALEOUT         "Scale out"
+    IDS_TB_SCALE100         "Scale: 100%"
+    IDS_TB_SCALEAUTO        "Scale: Auto"
+    IDS_TB_FULLSCREEN       "&Full screen\tCtrl+Alt+Shift+F"
+    IDS_TB_CONFIGURATION    "&Configuration..."
+END
+
+STRINGTABLE
+BEGIN
+    IDS_LISTENING_OPTIONS   "Options for incoming connections..."
+    IDS_CONFIG              "Configuration..."
+    IDS_CLOSE               "Close listening daemon"
+    IDS_URL_LICENSING_FVA   "https://github.com/conzicast/2LabVnc"
+    IDS_URL_PRODUCT_FVA     "https://www.2lab.it/"
+    IDS_CMDLINE_HELP        "2LabVnc Viewer allows you to view and control remote hosts\r\nwhere 2LabVnc Server is running.\r\n\r\nCommand line syntax is the following.\r\n\r\nStart the viewer:\r\n  2labvnc-viewer\r\n\r\nStart the viewer and connect to the specified host:\r\n  2labvnc-viewer hostname::port [OPTIONS]\r\n  2labvnc-viewer -host=hostname [OPTIONS]\r\n  2labvnc-viewer -optionsfile=FILENAME [OPTIONS]\r\n\r\nStart the viewer in the listening mode:\r\n  2labvnc-viewer -listen\r\n\r\nShow this help on command line usage:\r\n  2labvnc-viewer -help\r\n\r\nThe following OPTIONS are supported (all of them should be used in the\r\nform -option=VALUE where both option name and value are case-insensitive):\r\n\r\n  -optionsfile\tThe specified file will be read and the corresponding\r\n\t\tconnection will be restored (use Save Connection Info\r\n\t\tto create such files).\r\n\r\n  -host\t\tConnect to the specified host name.\r\n\r\n  -port\t\tSpecify the port number.\r\n\r\n  -password\tSpecify the password for authenticating to the server.\r\n\r\n  -showcontrols\tShow toolbar.\r\n\r\n  -viewonly\tView only (input ignored).\r\n\r\n  -useclipboard\tUse clipboard (yes/no).\r\n\r\n  -scale\tScale by (auto, 50, 100, 150...).\r\n\r\n  -fullscreen\tFull-screen mode.\r\n\r\n  -warnfullscr\tShow full-screen warning.\r\n\r\n  -encoding\t (hextile, tight, rre, zrle).\r\n\r\n  -copyrect\t.\r\n\r\n  -mousecursor\t (no, local).\r\n\r\n  -mouselocal\t(no, snalldot, normal).\r\n\r\n  -mouseswap\tSwap right and middle buttons.\r\n\r\n  -jpegimagequality\tSet Jpeg image quality [0..9].\r\n\r\n  -compressionlevel\tSet custom compression level [0..9].\r\n\r\n  -logpath\tSpecify the path to logfile.\r\n"
+END
+
+STRINGTABLE
+BEGIN
+    IDS_FAILED_TO_OPEN_URL_FORMAT 
+                            "Failed to open Web resource for the following reason:\n%s"
+    IDS_TB_TOOLBAR          "Show &toolbar\tCtrl+Alt+Shift+T"
+    IDS_MBC_TVNVIEWER       "2LabVnc Viewer"
+    IDS_ERROR_IN_PROTOCOL   "Error in protocol. Please, reconnect to server."
+    IDS_DISCONNECT          "Connection to server is closed."
+    IDS_PRODUCT_VERSION_FORMAT "Version %s (built on %s)"
+    IDS_SAVE_SESSION_FILTER_VNC_FILES "VNC-configuration files (*.vnc)"
+    IDS_SAVE_SESSION_FILTER_ALL_FILES "All files (*.*)"
+    IDS_SECURITY_WARNING_CAPTION "Security Warning"
+    IDS_LICENSING_INFO      "Licensing Terms: GNU General Public License version 2"
+    IDS_QUESTION_SAVE_PASSWORD 
+                            "Do you want to save the password in this file?\r\nIf you save ""Yes"", anyone with access to this file could access your session and (potentially) discover your connection-password."
+    IDS_CONNECTION_INFO_CAPTION "Connection Information"
+    IDS_ABOUT_VIEWER        "About 2LabVnc Viewer..."
+    IDS_CONNECTION_INFO_FORMAT 
+                            "Host: %s\nDesktop: %s\nProtocol: %s\nResolution: %ix%i %i bits\nKeyboard layout: %s"
+    IDS_URL_LICENSING_FVC   "https://github.com/conzicast/2LabVnc"
+    IDS_UNKNOWN_ERROR_IN_VIEWER 
+                            "Error in 2LabVnc Viewer. The program will be closed."
+END
+
+STRINGTABLE
+BEGIN
+    IDS_CONFIGURATION_LISTEN_PORT "Listen port"
+    IDS_CONFIGURATION_LOG_LEVEL "Log level"
+    IDS_CONFIGURATION_HISTORY_LIMIT "History limit"
+    IDS_OPTIONS_SCALE       "Scale"
+    IDS_CONFIGURATION_CAPTION "2LabVnc Viewer Configuration"
+    IDS_OPTIONS_CAPTION     "Connection Options"
+    IDS_ERROR_VALUE_FIELD_ONLY_NUMERIC "Value in field '%s' must be numeric."
+    IDS_ERROR_VALUE_FIELD_ONLY_POSITIVE_NUMERIC 
+                            "Value in field '%s' must be a positive number."
+    IDS_ERROR_START_LISTENING "Listening mode is not started."
+    IDS_ERROR_COMMAND_LINE  "Error in format of command line. Try option ""-help"" to show help."
+    IDS_ERROR_PARSE_OPTIONS_FILE "Could not read options file."
+END
+
+#endif    // Английский (США) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+

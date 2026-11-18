@@ -1,0 +1,41 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Include>
+  <?define ProductNameStub='2LabVnc' ?>
+  <?define Language='1033' ?>
+  <?define Codepage='1252' ?>
+  <?define StartProductVersion='0.0.0' ?>
+  <!-- WARNING! If Version number increase is forget in a release
+       then the installer will
+       install the 2LabVnc product parallelly with the same version and
+       the same name -->
+  <?ifndef SERVER_FREE ?>
+    <?define Version='!(bind.FileVersion.tvnserverEXE)' ?>
+  <?else?>
+    <?ifndef VIEWER_FREE ?>
+      <?define Version='!(bind.FileVersion.viewerEXE)' ?>
+    <?endif?>
+  <?endif?>
+  <?define Manufacturer='2lab snc' ?>
+
+  <?define SrcFolder = "..\" ?>
+
+  <!-- This name must be synchronized with LogNames::LOG_DIR_NAME. -->
+  <?define AllUsersProgramDataFolderName = "2LabVnc"?>
+
+  <?define UpgradeCode='7E79D25B-1B53-4DDA-A62A-BAA18EE20A0C' ?>
+  <?define ProductName = "$(var.ProductNameStub)" ?>
+  
+  <?if $(var.Platform) = x64 ?>
+    <?define ProductId = '*' ?>
+    <?define Win64 = "yes" ?>
+    <?define PlatformProgramFilesFolder = "ProgramFiles64Folder" ?>
+    <?define BinFolder = "$(var.SrcFolder)\x64\Release" ?>
+    <?define AddonBinFolder = "files64" ?>
+  <?else ?>
+    <?define ProductId = '*' ?>
+    <?define Win64 = "no" ?>
+    <?define PlatformProgramFilesFolder = "ProgramFilesFolder" ?>
+    <?define BinFolder = "$(var.SrcFolder)\Release" ?>
+    <?define AddonBinFolder = "files32" ?>
+  <?endif ?>
+</Include>

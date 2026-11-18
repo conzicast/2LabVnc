@@ -1,0 +1,34 @@
+# Visual Studio build outputs
+Debug/
+Release/
+x64/
+**/Debug/
+**/Release/
+**/x64/
+*.obj
+*.pdb
+*.ilk
+*.idb
+*.ipdb
+*.iobj
+*.tlog
+*.lastbuildstate
+*.suo
+*.user
+*.VC.db
+*.VC.opendb
+
+# WiX outputs and local tooling
+*.msi
+*.wixobj
+*.wixpdb
+*.cab
+.tools/
+installer-audit/
+
+# Test and local runtime artifacts
+*.log
+*.dmp
+secure-channel-test/*.exe
+secure-channel-test/*.obj
+
