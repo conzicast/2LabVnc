@@ -1,68 +1,59 @@
 # 2LabVnc
 
-> **Solo Windows:** 2LabVnc funziona esclusivamente su Microsoft Windows,
-> a partire da **Windows 7**. Non sono previste versioni Linux o macOS.
+> **Windows only. Minimum version: Windows 7.** Installers are available for x86
+> and x64. Linux and macOS builds are unavailable.
 
-2LabVnc è un fork indipendente, distribuito con licenza GPLv2, derivato dal
-codice di **TightVNC 2.x per Windows**. Il progetto mantiene le funzioni di
-Server e Viewer di TightVNC e aggiunge un trasporto cifrato obbligatorio,
-senza fallback verso sessioni RFB in chiaro.
+2LabVnc is an independent GPLv2 fork of **TightVNC 2.x for Windows**, based on
+TightVNC 2.8.90. It retains the Server and Viewer and adds mandatory,
+authenticated AES-256-GCM encryption for the RFB session after the handshake.
+2LabVnc is maintained by 2lab snc and is unaffiliated with GlavSoft LLC.
 
-2LabVnc non è un prodotto ufficiale TightVNC e non è affiliato a GlavSoft LLC.
-I riferimenti a TightVNC descrivono esclusivamente l'origine del codice.
+## Features
 
-## Cosa aggiunge 2LabVnc
+- Mandatory Tight RFB tunnel (`CNSG/AESGCM01`) with no plaintext fallback
+- AES-256-GCM with separate keys and nonce sequences in each direction
+- Ephemeral ECDH P-256 key exchange and PBKDF2-HMAC-SHA-256 password derivation
+- Mutual handshake authentication and authenticated channel activation
+- Windows DPAPI protection for credentials stored by the Server
+- MSI installer with Server, Viewer, or both
+- Windows Firewall option for the Server, plus a notification area icon and Start menu shortcuts
 
-- tunnel RFB Tight proprietario e obbligatorio `CNSG/AESGCM01`;
-- cifratura di tutto il traffico con AES-256-GCM;
-- scambio effimero ECDH P-256;
-- autenticazione della password con PBKDF2-HMAC-SHA-256;
-- autenticazione reciproca del transcript e conferma protetta di attivazione;
-- chiavi e nonce separati nelle due direzioni;
-- protezione DPAPI delle credenziali memorizzate dal Server;
-- installer selettivo per Server, Viewer o entrambi;
-- regola Windows Firewall limitata alla feature Server;
-- tray icon e collegamenti completi nel menu Start.
+## Requirements
 
-I dettagli crittografici e le istruzioni operative sono in
-[docs/ENCRYPTION.md](docs/ENCRYPTION.md). L'installazione è descritta in
-[docs/INSTALLATION.md](docs/INSTALLATION.md).
+- Microsoft Windows 7 or later, x86 or x64
+- Administrator rights to install the Server, register the service, and add the firewall rule
+- 2LabVnc on both ends of the connection
 
-## Requisiti
+Windows 7 is the configured minimum. Release 1.0.0 has yet to be tested on a
+clean Windows 7 VM.
 
-- esclusivamente Windows 7 o versione successiva;
-- architettura x86 oppure x64;
-- accesso amministrativo per installare il Server, registrare il servizio e
-  creare la regola firewall;
-- Viewer e Server 2LabVnc: i client TightVNC originali non supportano il
-  tunnel cifrato richiesto.
+## Quick start
 
-## Uso rapido
+1. Download the MSI for your architecture from [GitHub Releases](https://github.com/conzicast/2LabVnc/releases).
+2. Install **2LabVnc Server** on the computer you want to control.
+3. Set a dedicated encryption password of 16 to 128 characters. Allow incoming
+   connections on the configured TCP port, which defaults to `5900`.
+4. Install **2LabVnc Viewer** on the computer you will use to connect.
+5. Connect to the Server and enter the same encryption password. If
+   `Require VNC authentication` is enabled, enter the traditional VNC password
+   in the second prompt.
 
-1. Installare la feature **2LabVnc Server** sul computer da controllare.
-2. Impostare una password di cifratura dedicata di almeno 16 caratteri.
-3. Lasciare aperta la porta TCP configurata, predefinita `5900`.
-4. Installare **2LabVnc Viewer** sul computer operatore.
-5. Connettersi all'indirizzo del Server e inserire la stessa password di
-   cifratura.
-6. Se sul Server è attivo `Require VNC authentication`, inserire anche la
-   password VNC tradizionale.
+The encryption password and the traditional VNC password are separate
+credentials. Turning off `Require VNC authentication` leaves a single
+password prompt and removes the distinction between full-control and
+view-only access based on the traditional VNC password.
 
-La password di cifratura e la password VNC sono credenziali distinte. È
-possibile disabilitare l'autenticazione VNC tradizionale e usare soltanto la
-password di cifratura; in tal caso si rinuncia alla distinzione basata sulla
-password VNC di sola visualizzazione.
+See the [installation guide](docs/INSTALLATION.md) and
+[encryption guide](docs/ENCRYPTION.md) for setup, troubleshooting, and
+protocol details.
 
 ## Build
 
-La soluzione principale è `tightvnc2017.sln`. La build verificata usa:
+The main solution is `tightvnc2017.sln`. The verified build uses Visual Studio
+2022 Build Tools, the MSVC `v143` toolset, and the Windows 10 SDK with
+`_WIN32_WINNT=0x0601`. The x86 and x64 MSI packages use WiX Toolset 3.14.1.
 
-- Visual Studio 2022 Build Tools;
-- toolset MSVC `v143`;
-- Windows 10 SDK, mantenendo `_WIN32_WINNT=0x0601`;
-- WiX Toolset 3.14.1 per gli MSI x86 e x64.
-
-Esempio x64:
+Build the x64 configuration with PowerShell:
 
 ```powershell
 msbuild .\tightvnc2017.sln /m /t:Build `
@@ -70,11 +61,10 @@ msbuild .\tightvnc2017.sln /m /t:Build `
   /p:PlatformToolset=v143 /p:WindowsTargetPlatformVersion=10.0
 ```
 
-## Licenza e attribuzione
+## License and attribution
 
-2LabVnc è distribuito secondo la GNU General Public License v2. Il codice
-originario TightVNC conserva le proprie intestazioni e attribuzioni. Vedere
-[LICENSE](LICENSE) e [NOTICE.md](NOTICE.md).
+2LabVnc is distributed under the GNU General Public License v2. The original
+TightVNC copyright and attribution notices are retained.
+See [LICENSE](LICENSE) and [NOTICE.md](NOTICE.md).
 
-Sito 2Lab: [www.2lab.it](https://www.2lab.it/)
-
+[2Lab website](https://www.2lab.it/)
