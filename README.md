@@ -8,6 +8,14 @@ TightVNC 2.8.90. It retains the Server and Viewer and adds mandatory,
 authenticated AES-256-GCM encryption for the RFB session after the handshake.
 2LabVnc is maintained by 2lab snc and is unaffiliated with GlavSoft LLC.
 
+## No warranty and limitation of liability
+
+2LabVnc is provided **"AS IS"**, without warranty of any kind, express or
+implied, to the extent permitted by applicable law. Except where required by
+applicable law or agreed in writing, the copyright holders and contributors
+are not liable for damages arising from use of, or inability to use, the software.
+See sections 11 and 12 of the [GNU GPLv2 license](LICENSE).
+
 ## Features
 
 - Mandatory Tight RFB tunnel (`CNSG/AESGCM01`) with no plaintext fallback
