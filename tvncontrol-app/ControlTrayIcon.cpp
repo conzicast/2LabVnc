@@ -60,7 +60,7 @@ ControlTrayIcon::ControlTrayIcon(ControlProxy *serverControl,
                                  Notificator *notificator,
                                  ControlApplication *appControl,
                                  bool showAfterCreation)
-: NotifyIcon(showAfterCreation),
+: NotifyIcon(false),
   m_serverControl(serverControl), m_notificator(notificator),
   m_appControl(appControl),
   m_inWindowProc(false),
@@ -91,6 +91,9 @@ ControlTrayIcon::ControlTrayIcon(ControlProxy *serverControl,
   syncStatusWithServer();
 
   WM_USER_TASKBAR = RegisterWindowMessage(_T("TaskbarCreated"));
+  if (showAfterCreation) {
+    show();
+  }
 }
 
 ControlTrayIcon::~ControlTrayIcon()

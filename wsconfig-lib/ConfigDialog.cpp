@@ -74,7 +74,7 @@ void ConfigDialog::setServiceFlag(bool serviceFlag)
   updateCaption();
 }
 
-bool ConfigDialog::isConfiguringService()
+bool ConfigDialog::isConfiguringService() const
 {
   return m_isConfiguringService;
 }

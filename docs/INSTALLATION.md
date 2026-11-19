@@ -22,11 +22,18 @@ Download the MSI for your system architecture, x86 or x64, from
    settings and adjust the firewall rule to match.
 5. Set and confirm the full-control and view-only passwords when prompted.
    The two passwords must differ and each must contain at least 16 characters.
-   The eye button shows or hides both fields in the current dialog.
+   The eye button below the password fields shows or hides both fields in
+   the current dialog. Validation messages appear directly below the fields.
 6. If setup skips the prompt, open Server settings and select **Set...** under
    **Full control and view only**. Apply the settings and enable incoming connections.
 7. Open **Fingerprint...** in Server settings after applying the passwords.
    Copy the fingerprint and share it through a trusted channel.
+
+When the setup wizard registers the Server as a Windows service, it saves
+the passwords in **Service Mode**. To retrieve its fingerprint from the
+Start menu, open **2LabVnc Server (Service Mode)**, select
+**2LabVnc Service - Offline Settings**, and click **Fingerprint...**.
+**Application Mode** has its own passwords and fingerprint.
 
 With the Windows Firewall option enabled, the installer creates one inbound
 TCP rule for the Server's RFB port. Viewer-only installs add no firewall rules.
@@ -40,6 +47,7 @@ The internal service name is `2LabVncServer` and its display name is
 When setup starts the Server as a Windows service, the notification area
 icon starts automatically for users already signed in. It also starts at
 subsequent sign-ins. Windows may place it in the hidden icons area.
+The tray retries registration if Windows Explorer is still starting.
 
 Click the Server icon in the Windows notification area to open settings.
 Windows prompts for administrator rights when configuring the service.

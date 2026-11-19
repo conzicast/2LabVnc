@@ -56,7 +56,7 @@ public:
   void setConfigReloadCommand(ControlCommand *command);
   void setServiceFlag(bool serviceFlag);
 
-  bool isConfiguringService();
+  bool isConfiguringService() const;
 
 protected:
 

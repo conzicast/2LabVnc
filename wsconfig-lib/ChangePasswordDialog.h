@@ -27,7 +27,6 @@
 
 #include "gui/BaseDialog.h"
 #include "gui/TextBox.h"
-#include "gui/BalloonTip.h"
 #include "util/StringStorage.h"
 
 struct SecureServerCredentials;
@@ -77,6 +76,7 @@ protected:
 private:
   void initControls();
   void togglePasswordVisibility();
+  void showValidationError(TextBox &field, const TCHAR *message);
 
 protected:
   // Controls
@@ -84,11 +84,6 @@ protected:
   TextBox m_password2;
   // Password
   StringStorage m_passwordText;
-  // Tooltip
-  BalloonTip m_passwordEmptyTooltip;
-  BalloonTip m_passwordsNotMatchTooltip;
-  BalloonTip m_passwordWeakTooltip;
-  BalloonTip m_passwordEncodingTooltip;
   // Helper members
   bool m_newPassword;
   bool m_allowEmptyPassword;

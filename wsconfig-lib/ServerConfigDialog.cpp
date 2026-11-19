@@ -478,7 +478,20 @@ void ServerConfigDialog::showServerFingerprint()
     StringStorage fingerprint;
     m_config->getEncryptionFingerprint(&fingerprint);
     if (fingerprint.isEmpty()) {
-      MessageBox(m_ctrlThis.getWindow(), _T("Set and apply both access passwords first."),
+      const ConfigDialog *settings = static_cast<ConfigDialog *>(m_parentDialog);
+      const TCHAR *message;
+      if (m_encryptionCredentialsChanged && m_encryptionCredentialsPresent) {
+        message = _T("Click Apply to save the two passwords, then open Fingerprint again.");
+      } else if (settings->isConfiguringService()) {
+        message = _T("No connection passwords are saved for the Windows service. ")
+                  _T("Use Set and then Apply in these settings.");
+      } else {
+        message = _T("No connection passwords are saved for Application Mode. ")
+                  _T("If you set passwords during service installation, open ")
+                  _T("2LabVnc Service - Offline Settings from the Service Mode Start menu folder ")
+                  _T("and choose Fingerprint there.");
+      }
+      MessageBox(m_ctrlThis.getWindow(), message,
                  _T("2LabVnc Server Identity"), MB_OK | MB_ICONINFORMATION);
       return;
     }

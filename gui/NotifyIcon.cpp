@@ -27,7 +27,7 @@
 #include <shellapi.h>
 
 NotifyIcon::NotifyIcon(bool showAfterCreation)
-: NotifyIconWindow(), m_icon(0), m_visible(showAfterCreation)
+: NotifyIconWindow(), m_icon(0), m_visible(false)
 {
   memset(&m_nid, 0, sizeof(NOTIFYICONDATA));
 
@@ -43,25 +43,28 @@ NotifyIcon::NotifyIcon(bool showAfterCreation)
 
 NotifyIcon::~NotifyIcon()
 {
-  if (m_nid.hIcon != 0) {
-    setIcon(NULL);
-  }
+  hide();
 }
 
 void NotifyIcon::show()
 {
   m_nid.uFlags = NIF_MESSAGE;
+  if (m_nid.hIcon != 0) {
+    m_nid.uFlags |= NIF_ICON;
+  }
+  if (m_nid.szTip[0] != 0) {
+    m_nid.uFlags |= NIF_TIP;
+  }
   m_nid.hWnd = m_window;
   m_nid.uCallbackMessage = WM_USER + 1;
-  Shell_NotifyIcon(NIM_ADD, &m_nid);
-  m_visible = true;
+  // Callers can retry if Explorer was not ready to register the icon.
+  m_visible = Shell_NotifyIcon(NIM_ADD, &m_nid) != FALSE;
 }
 
 void NotifyIcon::hide()
 {
   m_nid.uFlags = NIF_ICON;
   Shell_NotifyIcon(NIM_DELETE, &m_nid);
-  m_nid.hIcon = 0;
   m_visible = false;
 }
 
@@ -77,14 +80,14 @@ bool NotifyIcon::isVisible() const
 
 void NotifyIcon::setIcon(Icon *icon)
 {
-  m_nid.uFlags = NIF_ICON;
-  if (icon != 0) {
-    m_nid.hIcon = icon->getHICON();
-    Shell_NotifyIcon(NIM_MODIFY, &m_nid);
-  } else {
-    hide();
-  }
   m_icon = icon;
+  m_nid.hIcon = icon != 0 ? icon->getHICON() : 0;
+  if (icon == 0) {
+    hide();
+  } else if (m_visible) {
+    m_nid.uFlags = NIF_ICON;
+    m_visible = Shell_NotifyIcon(NIM_MODIFY, &m_nid) != FALSE;
+  }
 }
 
 void NotifyIcon::setText(const TCHAR *text)
@@ -94,7 +97,9 @@ void NotifyIcon::setText(const TCHAR *text)
   const size_t BUFFER_SIZE_TCHARS = sizeof(m_nid.szTip) / sizeof(TCHAR);
   _tcsncpy_s(m_nid.szTip, BUFFER_SIZE_TCHARS, text, _TRUNCATE);
 
-  Shell_NotifyIcon(NIM_MODIFY, &m_nid);
+  if (m_visible) {
+    m_visible = Shell_NotifyIcon(NIM_MODIFY, &m_nid) != FALSE;
+  }
 }
 
 void

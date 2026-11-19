@@ -94,8 +94,8 @@ LRESULT ControlTrayIcon::windowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
 
 void ControlTrayIcon::showIcon()
 {
-  show();
   setIcon(&m_icon);
+  show();
 }
 
 void ControlTrayIcon::onRightButtonUp()

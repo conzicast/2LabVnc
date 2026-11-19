@@ -61,22 +61,6 @@ ChangePasswordDialog::ChangePasswordDialog(Control *parent, bool isNewPassword,
   m_caption(caption == 0 ? _T("") : caption)
 {
   setParent(parent);
-
-  m_passwordEmptyTooltip.setText(StringTable::getString(IDS_PASSWORD_IS_EMPTY));
-  m_passwordEmptyTooltip.setTitle(StringTable::getString(IDS_MBC_TVNCONTROL));
-
-  m_passwordsNotMatchTooltip.setText(StringTable::getString(IDS_PASSWORDS_NOT_MATCH));
-  m_passwordsNotMatchTooltip.setTitle(StringTable::getString(IDS_MBC_TVNCONTROL));
-
-  StringStorage minimumLengthMessage;
-  minimumLengthMessage.format(
-    _T("Password must contain at least %u characters."),
-    static_cast<unsigned int>(m_minimumLength));
-  m_passwordWeakTooltip.setText(minimumLengthMessage.getString());
-  m_passwordWeakTooltip.setTitle(StringTable::getString(IDS_MBC_BAD_PASSWORD));
-
-  m_passwordEncodingTooltip.setText(StringTable::getString(IDS_BAD_PASSWORD));
-  m_passwordEncodingTooltip.setTitle(StringTable::getString(IDS_MBC_BAD_PASSWORD));
 }
 
 ChangePasswordDialog::~ChangePasswordDialog()
@@ -141,6 +125,9 @@ BOOL ChangePasswordDialog::onInitDialog()
 
 BOOL ChangePasswordDialog::onCommand(UINT cID, UINT nID)
 {
+  if (nID == EN_CHANGE && (cID == IDC_PASSWORD || cID == IDC_PASSWORD2)) {
+    SetDlgItemText(m_ctrlThis.getWindow(), IDC_PASSWORD_VALIDATION, _T(""));
+  }
   if (nID == BN_CLICKED) {
     switch (cID) {
     case IDOK:
@@ -187,9 +174,10 @@ BOOL ChangePasswordDialog::onDrawItem(WPARAM controlID, LPDRAWITEMSTRUCT item)
   SelectObject(item->hDC, GetStockObject(NULL_BRUSH));
   SelectObject(item->hDC, GetStockObject(DC_PEN));
   SetDCPenColor(item->hDC, GetSysColor(COLOR_BTNTEXT));
-  const int x = (bounds.left + bounds.right) / 2;
-  const int y = bounds.top + (bounds.bottom - bounds.top) / 3;
-  const int radius = (bounds.right - bounds.left) / 5;
+  const int height = bounds.bottom - bounds.top;
+  const int x = bounds.left + height / 2;
+  const int y = bounds.top + height / 2;
+  const int radius = height / 4;
   const POINT eye[] = { {x - radius, y}, {x, y - radius / 2},
     {x + radius, y}, {x, y + radius / 2} };
   Polygon(item->hDC, eye, sizeof(eye) / sizeof(eye[0]));
@@ -200,16 +188,27 @@ BOOL ChangePasswordDialog::onDrawItem(WPARAM controlID, LPDRAWITEMSTRUCT item)
   }
   SetBkMode(item->hDC, TRANSPARENT);
   SetTextColor(item->hDC, GetSysColor(COLOR_BTNTEXT));
+  HFONT font = reinterpret_cast<HFONT>(SendMessage(item->hwndItem, WM_GETFONT, 0, 0));
+  if (font != NULL) {
+    SelectObject(item->hDC, font);
+  }
   RECT label = bounds;
-  label.top = y + radius / 2;
-  DrawText(item->hDC, m_passwordsVisible ? _T("Hide") : _T("Show"),
-           -1, &label, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+  label.left += height;
+  label.right -= radius;
+  DrawText(item->hDC, m_passwordsVisible ? _T("Hide passwords") : _T("Show passwords"),
+           -1, &label, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
   if (item->itemState & ODS_FOCUS) {
     InflateRect(&bounds, -3, -3);
     DrawFocusRect(item->hDC, &bounds);
   }
   RestoreDC(item->hDC, saved);
   return TRUE;
+}
+
+void ChangePasswordDialog::showValidationError(TextBox &field, const TCHAR *message)
+{
+  SetDlgItemText(m_ctrlThis.getWindow(), IDC_PASSWORD_VALIDATION, message);
+  field.setFocus();
 }
 
 void ChangePasswordDialog::onOkButtonClick()
@@ -220,25 +219,24 @@ void ChangePasswordDialog::onOkButtonClick()
   m_password2.getText(&password2);
 
   if (password1.isEmpty() && !m_allowEmptyPassword) {
-    m_password1.showBalloonTip(&m_passwordEmptyTooltip);
-    m_password1.setFocus();
-    return ;
+    showValidationError(m_password1, StringTable::getString(IDS_PASSWORD_IS_EMPTY));
+    return;
   }
   if (!password1.isEqualTo(&password2)) {
-    m_password2.showBalloonTip(&m_passwordsNotMatchTooltip);
-    m_password2.setFocus();
-    return ;
+    showValidationError(m_password2, StringTable::getString(IDS_PASSWORDS_NOT_MATCH));
+    return;
   }
 
   if (countPasswordCharacters(password1.getString()) < m_minimumLength) {
-    m_password1.showBalloonTip(&m_passwordWeakTooltip);
-    m_password1.setFocus();
+    StringStorage message;
+    message.format(_T("Password must contain at least %u characters."),
+                   static_cast<unsigned int>(m_minimumLength));
+    showValidationError(m_password1, message.getString());
     return;
   }
 
   if (m_requireAnsi && !AnsiStringStorage::checkAnsiConversion(password1)) {
-    m_password1.showBalloonTip(&m_passwordEncodingTooltip);
-    m_password1.setFocus();
+    showValidationError(m_password1, StringTable::getString(IDS_BAD_PASSWORD));
     return;
   }
 
