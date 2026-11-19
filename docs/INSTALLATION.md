@@ -45,9 +45,10 @@ The internal service name is `2LabVncServer` and its display name is
 
 ## Notification area and Start menu
 
-When setup starts the Server as a Windows service, the notification area
-icon starts automatically for users already signed in. It also starts at
-subsequent sign-ins. Windows may place it in the hidden icons area.
+Interactive setup starts the notification area icon in the installer’s
+Windows session after installing and starting the Server as a service.
+The service also starts the icon for users already signed in, and the
+icon starts at subsequent sign-ins. Windows may place it in the hidden icons area.
 The tray retries registration if Windows Explorer is still starting.
 
 Click the Server icon in the Windows notification area to open settings.

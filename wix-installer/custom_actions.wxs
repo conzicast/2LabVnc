@@ -34,6 +34,12 @@
                   Execute="commit"
                   Return="ignore" />
 
+    <CustomAction Id="LaunchServerTray"
+                  FileKey="tvnserverEXE"
+                  ExeCommand="-controlservice -slave"
+                  Execute="immediate"
+                  Return="asyncNoWait" />
+
     <CustomAction Id="SetPasswordsAction"
                   FileKey="tvnserverEXE"
                   ExeCommand='-checkservicepasswords'

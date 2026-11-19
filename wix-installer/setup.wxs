@@ -106,6 +106,16 @@
     <Property Id="ARPPRODUCTICON" Value="viewer.ico" />
     <?endif?>
 
+    <?ifndef SERVER_FREE ?>
+    <InstallUISequence>
+      <!-- Launch from the interactive installer after the service is started.
+           The tray's per-session mutex prevents a duplicate. -->
+      <Custom Action="LaunchServerTray" After="ExecuteAction">
+        REGISTER_AS_SERVICE = 1 AND <![CDATA[&Server=3]]> AND NOT REMOVE
+      </Custom>
+    </InstallUISequence>
+    <?endif?>
+
     <!-- Run custom actions during the install -->
     <InstallExecuteSequence>
       <RemoveExistingProducts After="InstallInitialize" />

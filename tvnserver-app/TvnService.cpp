@@ -41,13 +41,15 @@
 namespace {
 
 void startTrayInSession(DWORD sessionId, const TCHAR *executable,
-                        const StringStorage &arguments)
+                        const StringStorage &arguments, LogWriter &log)
 {
   // CreateProcessAsUser may change the command line buffer.
   const TCHAR *first = arguments.getString();
   std::vector<TCHAR> commandLine(first, first + arguments.getLength() + 1);
   HANDLE userToken = 0;
   if (!WTSQueryUserToken(sessionId, &userToken)) {
+    log.warning(_T("Could not obtain the tray user token for session %lu (Windows error %lu)"),
+                sessionId, GetLastError());
     return;
   }
 
@@ -63,16 +65,23 @@ void startTrayInSession(DWORD sessionId, const TCHAR *executable,
                             &startup, &process)) {
       CloseHandle(process.hThread);
       CloseHandle(process.hProcess);
+    } else {
+      log.warning(_T("Could not start the tray in session %lu (Windows error %lu)"),
+                  sessionId, GetLastError());
     }
     DestroyEnvironmentBlock(environment);
+  } else {
+    log.warning(_T("Could not create the tray environment for session %lu (Windows error %lu)"),
+                sessionId, GetLastError());
   }
   CloseHandle(userToken);
 }
 
-void startTrayForActiveUsers()
+void startTrayForActiveUsers(LogWriter &log)
 {
   StringStorage executable;
   if (!Environment::getCurrentModulePath(&executable)) {
+    log.warning(_T("Could not locate the 2LabVnc Server executable for tray startup"));
     return;
   }
 
@@ -83,11 +92,13 @@ void startTrayForActiveUsers()
   PWTS_SESSION_INFO sessions = 0;
   DWORD count = 0;
   if (!WTSEnumerateSessions(WTS_CURRENT_SERVER_HANDLE, 0, 1, &sessions, &count)) {
+    log.warning(_T("Could not enumerate Windows sessions for tray startup (Windows error %lu)"),
+                GetLastError());
     return;
   }
   for (DWORD index = 0; index < count; ++index) {
     if (sessions[index].SessionId != 0 && sessions[index].State == WTSActive) {
-      startTrayInSession(sessions[index].SessionId, executable.getString(), arguments);
+      startTrayInSession(sessions[index].SessionId, executable.getString(), arguments, log);
     }
   }
   WTSFreeMemory(sessions);
@@ -126,7 +137,11 @@ void TvnService::onStart()
 
 void TvnService::main()
 {
-  startTrayForActiveUsers();
+  if (m_tvnServer == 0) {
+    return;
+  }
+  LogWriter log(&m_clientLogger);
+  startTrayForActiveUsers(log);
   m_shutdownEvent.waitForEvent();
   m_tvnServer->removeListener(this);
   delete m_tvnServer;
