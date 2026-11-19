@@ -108,7 +108,7 @@ int ServiceControlApplication::run()
   // After trying to start the service, regardless of the result, run the
   // control interface with non-elevated privileges. Make sure to skip this
   // step if there was a -dontelevate option (so we are a child process).
-  if (cmdLine.startRequested() && !cmdLine.dontElevate()) {
+  if (cmdLine.startRequested() && !cmdLine.beSilent() && !cmdLine.dontElevate()) {
     try {
       // FIXME: WsConfigRunner is a Thread, so the work will be made in a
       //        newly created thread and thus we are not aware of the result.

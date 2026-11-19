@@ -29,7 +29,7 @@
 
     <CustomAction Id="StartService"
                   FileKey="tvnserverEXE"
-                  ExeCommand="-start"
+                  ExeCommand="-start -silent"
                   Impersonate="no"
                   Execute="commit"
                   Return="ignore" />

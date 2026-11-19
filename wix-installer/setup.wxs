@@ -1,5 +1,6 @@
 ﻿<?xml version='1.0' encoding='Windows-1252'?>
-<Wix xmlns='http://schemas.microsoft.com/wix/2006/wi'>
+<Wix xmlns='http://schemas.microsoft.com/wix/2006/wi'
+     xmlns:util='http://schemas.microsoft.com/wix/UtilExtension'>
 
   <?include product_definitions.wxi?>
 
@@ -68,6 +69,18 @@
          links all properties from the file -->
     <PropertyRef Id="VIEWER_ASSOCIATE_VNC_EXTENSION"/>
 
+    <?ifndef SERVER_FREE ?>
+    <!-- The tray uses the Server executable. Close its windows before
+         InstallValidate checks for files in use. StopServices handles the service. -->
+    <util:CloseApplication Id="CloseServerWindows"
+                           Target="2labvnc-server.exe"
+                           CloseMessage="yes"
+                           RebootPrompt="no"
+                           Timeout="5">
+      (Installed AND (&amp;Server=2 OR REMOVE~="ALL")) OR (PREVIOUSFOUND AND &amp;Server=3)
+    </util:CloseApplication>
+    <?endif?>
+
     <FeatureRef Id="ProductFeature"/>
 
     <UIRef Id="TvnUI" />
@@ -98,6 +111,8 @@
       <RemoveExistingProducts After="InstallInitialize" />
 
     <?ifndef SERVER_FREE ?>
+
+      <Custom Action="WixCloseApplications" Before="InstallValidate" />
 
       <!--<Custom Action="UnregService" After="InstallInitialize">
          If the Server feature is deselected

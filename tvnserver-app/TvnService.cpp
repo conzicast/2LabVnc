@@ -26,9 +26,74 @@
 
 #include "ServerCommandLine.h"
 #include "tvnserver-app/NamingDefs.h"
+#include "tvncontrol-app/ControlCommandLine.h"
 
 #include "win-system/SCMClient.h"
 #include "win-system/Environment.h"
+
+#include <userenv.h>
+#include <wtsapi32.h>
+#include <vector>
+
+#pragma comment(lib, "userenv.lib")
+#pragma comment(lib, "wtsapi32.lib")
+
+namespace {
+
+void startTrayInSession(DWORD sessionId, const TCHAR *executable,
+                        const StringStorage &arguments)
+{
+  // CreateProcessAsUser may change the command line buffer.
+  const TCHAR *first = arguments.getString();
+  std::vector<TCHAR> commandLine(first, first + arguments.getLength() + 1);
+  HANDLE userToken = 0;
+  if (!WTSQueryUserToken(sessionId, &userToken)) {
+    return;
+  }
+
+  LPVOID environment = 0;
+  if (CreateEnvironmentBlock(&environment, userToken, FALSE)) {
+    STARTUPINFO startup = {0};
+    startup.cb = sizeof(startup);
+    TCHAR desktop[] = _T("winsta0\\default");
+    startup.lpDesktop = desktop;
+    PROCESS_INFORMATION process = {0};
+    if (CreateProcessAsUser(userToken, executable, &commandLine[0], 0, 0, FALSE,
+                            CREATE_UNICODE_ENVIRONMENT, environment, 0,
+                            &startup, &process)) {
+      CloseHandle(process.hThread);
+      CloseHandle(process.hProcess);
+    }
+    DestroyEnvironmentBlock(environment);
+  }
+  CloseHandle(userToken);
+}
+
+void startTrayForActiveUsers()
+{
+  StringStorage executable;
+  if (!Environment::getCurrentModulePath(&executable)) {
+    return;
+  }
+
+  StringStorage arguments;
+  arguments.format(_T("\"%s\" %s %s"), executable.getString(),
+                   ControlCommandLine::CONTROL_SERVICE, ControlCommandLine::SLAVE_MODE);
+  // Service startup covers users already logged in. The Run entry covers future logons.
+  PWTS_SESSION_INFO sessions = 0;
+  DWORD count = 0;
+  if (!WTSEnumerateSessions(WTS_CURRENT_SERVER_HANDLE, 0, 1, &sessions, &count)) {
+    return;
+  }
+  for (DWORD index = 0; index < count; ++index) {
+    if (sessions[index].SessionId != 0 && sessions[index].State == WTSActive) {
+      startTrayInSession(sessions[index].SessionId, executable.getString(), arguments);
+    }
+  }
+  WTSFreeMemory(sessions);
+}
+
+}
 
 const TCHAR TvnService::SERVICE_COMMAND_LINE_KEY[] = _T("-service");
 
@@ -61,6 +126,7 @@ void TvnService::onStart()
 
 void TvnService::main()
 {
+  startTrayForActiveUsers();
   m_shutdownEvent.waitForEvent();
   m_tvnServer->removeListener(this);
   delete m_tvnServer;

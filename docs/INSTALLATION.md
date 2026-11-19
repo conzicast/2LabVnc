@@ -37,6 +37,10 @@ The internal service name is `2LabVncServer` and its display name is
 
 ## Notification area and Start menu
 
+When setup starts the Server as a Windows service, the notification area
+icon starts automatically for users already signed in. It also starts at
+subsequent sign-ins. Windows may place it in the hidden icons area.
+
 Click the Server icon in the Windows notification area to open settings.
 Windows prompts for administrator rights when configuring the service.
 Closing the service settings dialog reloads the saved configuration.
@@ -58,6 +62,17 @@ start, stop, or remove the service.
 Arrange local access to the Server first. Update the Server and Viewer together,
 set two fresh role passwords on the Server, and distribute its fingerprint.
 Earlier versions use an incompatible protocol. See the [encryption guide](ENCRYPTION.md).
+
+## Remove the Server
+
+Uninstall **2LabVnc** from **Programs and Features**. The installer stops and
+removes the `2LabVncServer` Windows service before deleting the Server files.
+
+If Windows Installer reports that files are in use, cancel the uninstall.
+From **2LabVnc Server (Service Mode)** in the Start menu, run
+**Stop 2LabVnc Service** as an administrator and wait until the service has
+stopped. Close the Server tray and any open 2LabVnc windows, then retry.
+Stopping the service disconnects active Viewer sessions.
 
 ## Run alongside TightVNC
 
