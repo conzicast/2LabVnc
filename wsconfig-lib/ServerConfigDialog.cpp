@@ -573,7 +573,7 @@ void ServerConfigDialog::onUnsetEncryptionPasswordClick()
 void ServerConfigDialog::updateEncryptionPasswordControls()
 {
   m_encryptionPassword.setText(
-    m_encryptionCredentialsPresent ? _T("Change...") : _T("Set..."));
+    m_encryptionCredentialsPresent ? _T("Edit") : _T("Set..."));
   m_unsetEncryptionPassword.setEnabled(m_encryptionCredentialsPresent);
 }
 

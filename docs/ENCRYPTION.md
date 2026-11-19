@@ -50,6 +50,7 @@ connection. The header and GCM tag add 32 bytes per record.
    Server icon in the notification area. If the Server runs as a service, use
    **2LabVnc Service - Tray and Settings**.
 2. On the connections page, select **Set...** under **Full control and view only**.
+   Select **Edit** when passwords are already configured.
 3. Set and confirm each password. Use at least 16 characters per password and
    choose two different passwords. The eye button toggles visibility for both
    fields in the current dialog. Passwords support Unicode and use UTF-8 on
