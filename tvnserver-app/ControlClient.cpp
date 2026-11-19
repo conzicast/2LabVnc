@@ -24,6 +24,7 @@
 
 #define _CRT_RAND_S  // BEFORE <stdlib.h>
 #include <stdlib.h>
+#include <memory>
 
 #include "ControlClient.h"
 #include "TvnServer.h"
@@ -40,11 +41,63 @@
 #include "rfb/HostPath.h"
 
 #include "win-system/WTS.h"
+#include "win-system/security/SecurityIdentifier.h"
 
 #include "tvnserver/resource.h"
 
 #include "util/AnsiStringStorage.h"
 #include "util/MemUsage.h"
+
+namespace
+{
+  bool callerCanManageServer(HANDLE pipeHandle)
+  {
+    BYTE adminsSid[SECURITY_MAX_SID_SIZE];
+    DWORD sidSize = sizeof(adminsSid);
+    if (!CreateWellKnownSid(WinBuiltinAdministratorsSid, NULL, adminsSid, &sidSize)) {
+      return false;
+    }
+    BOOL serverIsAdmin = FALSE;
+    if (!CheckTokenMembership(NULL, adminsSid, &serverIsAdmin)) {
+      return false;
+    }
+    const bool requireAdmin = serverIsAdmin ||
+                              TvnServer::getInstance()->isRunningAsService();
+    std::auto_ptr<SecurityIdentifier> owner;
+    if (!requireAdmin) {
+      owner.reset(SecurityIdentifier::getProcessOwner(GetCurrentProcess()));
+    }
+    if (!ImpersonateNamedPipeClient(pipeHandle)) {
+      return false;
+    }
+
+    BOOL isAdmin = FALSE;
+    bool allowed = CheckTokenMembership(NULL, adminsSid, &isAdmin) && isAdmin;
+    if (!allowed && !requireAdmin) {
+      HANDLE token = NULL;
+      if (OpenThreadToken(GetCurrentThread(), TOKEN_QUERY, TRUE, &token)) {
+        alignas(TOKEN_USER) BYTE userBuffer[sizeof(TOKEN_USER) + SECURITY_MAX_SID_SIZE];
+        DWORD used = 0;
+        if (GetTokenInformation(token, TokenUser, userBuffer, sizeof(userBuffer), &used)) {
+          const TOKEN_USER *user = reinterpret_cast<const TOKEN_USER *>(userBuffer);
+          allowed = owner.get() && owner->isValid() && EqualSid(owner->getSid(), user->User.Sid);
+        }
+        CloseHandle(token);
+      }
+    }
+    if (!RevertToSelf()) {
+      throw IOException(_T("Could not restore server identity after checking the control caller"));
+    }
+    return allowed;
+  }
+
+  bool isTrayStatusRequest(UINT32 messageId)
+  {
+    return messageId == ControlProto::GET_SERVER_INFO_MSG_ID ||
+           messageId == ControlProto::GET_CLIENT_LIST_MSG_ID ||
+           messageId == ControlProto::GET_SHOW_TRAY_ICON_FLAG;
+  }
+}
 
 
 const UINT32 ControlClient::REQUIRES_AUTH[] = { ControlProto::ADD_CLIENT_MSG_ID,
@@ -108,6 +161,13 @@ void ControlClient::execute()
     while (!isTerminating()) {
       UINT32 messageId = m_gate->readUInt32();
       UINT32 messageSize = m_gate->readUInt32();
+      if (messageSize > 1024 * 1024) {
+        throw IOException(_T("Control message exceeds the size limit"));
+      }
+      if (!isTrayStatusRequest(messageId) && !callerCanManageServer(m_pipeHandle)) {
+        sendError(_T("Windows administrator privileges are required for this command."));
+        return;
+      }
 
       m_log->debug(_T("Recieved control message ID %u, size %u"),
                   (unsigned int)messageId, (unsigned int)messageSize);
@@ -401,10 +461,26 @@ bool allZeroes(unsigned char p[ServerConfig::VNC_PASSWORD_SIZE]) {
 
 void ControlClient::setServerConfigMsgRcvd()
 {
-  m_gate->writeUInt32(ControlProto::REPLY_OK);
   ServerConfig cfg;
   cfg.deserialize(m_gate);
   ServerConfig* old = Configurator::getInstance()->getServerConfig();
+  if (cfg.hasEncryptionCredentials() && !cfg.hasUsableEncryptionCredentials()) {
+    // A config fetched through IPC omits the pair. Preserve the existing one.
+    if (old->hasUsableEncryptionCredentials()) {
+      SecureServerCredentials credentials;
+      old->getEncryptionCredentials(&credentials);
+      cfg.setEncryptionCredentials(credentials);
+      SecureZeroMemory(&credentials, sizeof(credentials));
+    } else {
+      cfg.deleteEncryptionCredentials();
+    }
+  } else if (cfg.hasUsableEncryptionCredentials()) {
+    SecureServerCredentials credentials;
+    cfg.getEncryptionCredentials(&credentials);
+    old->preserveServerIdentity(&credentials);
+    cfg.setEncryptionCredentials(credentials);
+    SecureZeroMemory(&credentials, sizeof(credentials));
+  }
   unsigned char tmp[ServerConfig::VNC_PASSWORD_SIZE];
 
   if (cfg.hasPrimaryPassword()) {
@@ -432,8 +508,13 @@ void ControlClient::setServerConfigMsgRcvd()
     }
   }
   *old = cfg;
-  Configurator::getInstance()->save();
+  bool saved = Configurator::getInstance()->save();
   Configurator::getInstance()->load();
+  if (!saved) {
+    sendError(_T("Could not save the server configuration."));
+    return;
+  }
+  m_gate->writeUInt32(ControlProto::REPLY_OK);
 }
 
 void ControlClient::getShowTrayIconFlagMsgRcvd()
@@ -472,6 +553,7 @@ void ControlClient::getServerConfigMsgRcvd()
   if (cfg.hasReadOnlyPassword())
     cfg.setReadOnlyPassword(zeroes);
 
+  cfg.redactEncryptionCredentials();
   cfg.serialize(m_gate);
 }
 

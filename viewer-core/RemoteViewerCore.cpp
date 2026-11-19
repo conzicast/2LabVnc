@@ -184,19 +184,22 @@ RemoteViewerCore::~RemoteViewerCore()
 }
 
 void RemoteViewerCore::setEncryptionPassword(const UINT8 *password,
-                                             size_t passwordLength)
+                                             size_t passwordLength,
+                                             const UINT8 *fingerprint)
 {
   if (wasStarted()) {
     throw Exception(_T("Encryption password must be set before starting the viewer"));
   }
-  if (password == 0 || passwordLength == 0) {
-    throw Exception(_T("Encryption password cannot be empty"));
+  if (password == 0 || passwordLength == 0 || fingerprint == 0) {
+    throw Exception(_T("The encryption password and trusted server fingerprint are required"));
   }
   if (!m_encryptionPassword.empty()) {
     SecureZeroMemory(&m_encryptionPassword.front(),
                      m_encryptionPassword.size());
   }
   m_encryptionPassword.assign(password, password + passwordLength);
+  m_trustedServerFingerprint.assign(fingerprint,
+    fingerprint + SecureServerCredentials::FINGERPRINT_SIZE);
 }
 
 void RemoteViewerCore::start(CoreEventsAdapter *adapter,
@@ -632,7 +635,7 @@ void RemoteViewerCore::authenticate()
       }
       // if version 3.8 then try read reasonAuth.
       StringStorage reasonAuth;
-      m_input->readUTF8(&reasonAuth);
+      m_input->readUTF8(&reasonAuth, 4096);
       StringStorage errorMessage = _T("Authentication reason: ");
       errorMessage.appendString(reasonAuth.getString());
       m_logWriter.message(_T("%s"), errorMessage.getString());
@@ -750,6 +753,9 @@ void RemoteViewerCore::initTunnelling()
 {
   m_logWriter.detail(_T("Initialization of tight-tunneling..."));
   UINT32 tunnelCount = m_input->readUInt32();
+  if (tunnelCount > 64) {
+    throw IOException(_T("Too many Tight tunnel capabilities"));
+  }
   if (tunnelCount > 0) {
     bool hasSecureTunnel = false;
     RfbCapabilityInfo firstCapability = {};
@@ -773,7 +779,8 @@ void RemoteViewerCore::initTunnelling()
       runSecureClientHandshake(m_input, m_output,
                                m_tcpConnection.getSecureChannel(),
                                &m_encryptionPassword.front(),
-                               m_encryptionPassword.size());
+                               m_encryptionPassword.size(),
+                               &m_trustedServerFingerprint.front());
       SecureZeroMemory(&m_encryptionPassword.front(),
                        m_encryptionPassword.size());
       m_encryptionPassword.clear();
@@ -1202,8 +1209,8 @@ void RemoteViewerCore::receiveServerCutText()
   m_input->readUInt8();
 
   size_t length = m_input->readUInt32();
-  if (length > SIZE_MAX - 1) {
-    throw Exception(_T("Integer overflow in clipboard allocation"));
+  if (length > 1024 * 1024) {
+    throw IOException(_T("Clipboard message exceeds 1 MiB"));
   }
   std::vector<char> buffer(length + 1);
   m_input->readFully(&buffer.front(), length);
@@ -1227,8 +1234,8 @@ void RemoteViewerCore::receiveServerCutTextUtf8()
   UINT32 length = m_input->readUInt32();
   if (length == 0)
     return;
-  if (length > SIZE_MAX - 1) {
-    throw Exception(_T("Integer overflow in clipboard allocation"));
+  if (length > 1024 * 1024) {
+    throw IOException(_T("Clipboard message exceeds 1 MiB"));
   }
 
   std::vector<char> buffer(length + 1);
@@ -1352,8 +1359,11 @@ void RemoteViewerCore::clientAndServerInit()
   }
 
   UINT32 sizeInBytes = m_input->readUInt32();
+  if (sizeInBytes > 4096) {
+    throw IOException(_T("Remote desktop name exceeds the size limit"));
+  }
   std::vector<char> buffer(sizeInBytes + 1);
-  m_input->read(&buffer.front(), sizeInBytes);
+  m_input->readFully(&buffer.front(), sizeInBytes);
   buffer[sizeInBytes] = '\0';
   AnsiStringStorage ansiStr;
   ansiStr.setString(&buffer[0]);

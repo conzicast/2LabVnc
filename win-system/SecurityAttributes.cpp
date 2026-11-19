@@ -23,6 +23,7 @@
 //
 
 #include "SecurityAttributes.h"
+#include <memory>
 
 SecurityAttributes::SecurityAttributes()
 : m_isDefaultAttributes(true)
@@ -63,6 +64,29 @@ void SecurityAttributes::shareToAllUsers()
 
   m_securityAttributes.lpSecurityDescriptor = m_sd.getSD();
 
+  m_isDefaultAttributes = false;
+}
+
+void SecurityAttributes::configureControlPipe()
+{
+  SecurityIdentifier everyone(_T("S-1-1-0"));
+  SecurityIdentifier administrators(_T("S-1-5-32-544"));
+  SecurityIdentifier system(_T("S-1-5-18"));
+  std::auto_ptr<SecurityIdentifier> owner(SecurityIdentifier::getProcessOwner(GetCurrentProcess()));
+  SID *principals[] = { everyone.getSid(), administrators.getSid(),
+                         system.getSid(), owner->getSid() };
+  EXPLICIT_ACCESS rules[4] = {};
+  for (size_t index = 0; index < sizeof(rules) / sizeof(rules[0]); ++index) {
+    // FILE_APPEND_DATA aliases FILE_CREATE_PIPE_INSTANCE. Status clients
+    // get explicit I/O rights, without the right to create a server instance.
+    rules[index].grfAccessPermissions = index == 0 ?
+      (FILE_GENERIC_READ | FILE_WRITE_DATA | FILE_WRITE_ATTRIBUTES) : FILE_ALL_ACCESS;
+    rules[index].grfAccessMode = SET_ACCESS;
+    rules[index].Trustee.TrusteeForm = TRUSTEE_IS_SID;
+    rules[index].Trustee.ptstrName = reinterpret_cast<LPTSTR>(principals[index]);
+  }
+  m_sd.setRulesAsDacl(sizeof(rules) / sizeof(rules[0]), rules);
+  m_securityAttributes.lpSecurityDescriptor = m_sd.getSD();
   m_isDefaultAttributes = false;
 }
 

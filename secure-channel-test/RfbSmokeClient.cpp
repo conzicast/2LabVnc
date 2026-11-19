@@ -16,6 +16,8 @@
 #include "network/SecureHandshake.h"
 #include "rfb/AuthDefs.h"
 #include "rfb/TunnelDefs.h"
+#include "util/AnsiStringStorage.h"
+#include "util/StringStorage.h"
 
 class SocketChannel : public Channel
 {
@@ -92,8 +94,15 @@ namespace
 
 int main(int argc, char **argv)
 {
-  if (argc != 2 || strlen(argv[1]) < 16) {
-    std::cerr << "Usage: RfbSmokeClient <encryption-password>" << std::endl;
+  if (argc != 3 || strlen(argv[1]) < 16) {
+    std::cerr << "Usage: RfbSmokeClient <test-password> <trusted-fingerprint>" << std::endl;
+    return 2;
+  }
+  StringStorage fingerprintText;
+  AnsiStringStorage(argv[2]).toStringStorage(&fingerprintText);
+  UINT8 fingerprint[SecureServerCredentials::FINGERPRINT_SIZE];
+  if (!SecureServerCredentials::parseFingerprint(fingerprintText.getString(), fingerprint)) {
+    std::cerr << "Invalid server fingerprint" << std::endl;
     return 2;
   }
 
@@ -143,7 +152,7 @@ int main(int argc, char **argv)
 
     runSecureClientHandshake(
       &input, &output, &secureChannel,
-      reinterpret_cast<const UINT8 *>(argv[1]), strlen(argv[1]));
+      reinterpret_cast<const UINT8 *>(argv[1]), strlen(argv[1]), fingerprint);
     require(secureChannel.isActive(), _T("Secure channel was not activated"));
 
     require(input.readUInt32() == 0,

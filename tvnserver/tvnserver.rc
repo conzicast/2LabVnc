@@ -107,6 +107,16 @@ BEGIN
     PUSHBUTTON      "Cancel",IDCANCEL,223,78,50,15
 END
 
+IDD_SERVER_FINGERPRINT DIALOGEX 0, 0, 324, 73
+STYLE DS_SETFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "2LabVnc Server Identity"
+FONT 8, "Ms Shell Dlg 2", 0, 0, 0x0
+BEGIN
+    LTEXT           "Copy this fingerprint and share it with Viewer users through a trusted channel.",IDC_STATIC,10,8,304,16
+    EDITTEXT        IDC_SERVER_FINGERPRINT_VALUE,10,25,304,14,ES_AUTOHSCROLL | ES_READONLY
+    DEFPUSHBUTTON   "OK",IDOK,264,49,50,14,WS_GROUP
+END
+
 IDD_CONFIG DIALOGEX 0, 0, 319, 249
 STYLE DS_SETFONT | DS_MODALFRAME | DS_3DLOOK | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 EXSTYLE WS_EX_CONTROLPARENT
@@ -215,7 +225,8 @@ BEGIN
     EDITTEXT        IDC_RFB_PORT,89,31,38,12,ES_AUTOHSCROLL | ES_NUMBER
     CONTROL         "",IDC_RFB_PORT_SPIN,"msctls_updown32",UDS_SETBUDDYINT | UDS_ALIGNRIGHT | UDS_ARROWKEYS | UDS_NOTHOUSANDS,128,30,11,14
     LTEXT           "Encrypted access only. Set two different passwords, at least 16 characters each.",IDC_STATIC,16,46,122,22
-    LTEXT           "Full control and view only:",IDC_STATIC,16,70,122,10
+    LTEXT           "Full control and view only:",IDC_STATIC,16,69,76,10
+    PUSHBUTTON      "Fingerprint...",IDC_SHOW_SERVER_FINGERPRINT,92,68,47,13
     PUSHBUTTON      "Set...",IDC_ENCRYPTION_PASSWORD,22,82,57,15,WS_GROUP
     PUSHBUTTON      "Clear both",IDC_UNSET_ENCRYPTION_PASSWORD_BUTTON,85,82,52,15
     CONTROL         "Show encryption notice in Viewer",IDC_SHOW_ENCRYPTION_NOTICE,
@@ -425,8 +436,8 @@ IDI_DISABLED            ICON                    ".\\res\\disabled.ico"
 //
 
 1 VERSIONINFO
- FILEVERSION 1,1,0,0
- PRODUCTVERSION 1,1,0,0
+ FILEVERSION 1,2,0,0
+ PRODUCTVERSION 1,2,0,0
  FILEFLAGSMASK 0x0L
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -443,12 +454,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "2lab snc"
             VALUE "FileDescription", "2LabVnc Server"
-            VALUE "FileVersion", "1, 1, 0, 0"
+            VALUE "FileVersion", "1, 2, 0, 0"
             VALUE "InternalName", "2labvnc-server"
             VALUE "LegalCopyright", "Copyright (C) 2026 2lab snc; based on TightVNC 2.x"
             VALUE "OriginalFilename", "2labvnc-server.exe"
             VALUE "ProductName", "2LabVnc"
-            VALUE "ProductVersion", "1, 1, 0, 0"
+            VALUE "ProductVersion", "1, 2, 0, 0"
         END
     END
     BLOCK "VarFileInfo"

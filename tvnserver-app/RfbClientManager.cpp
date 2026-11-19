@@ -377,6 +377,13 @@ void RfbClientManager::addNewConnection(SocketIPv4 *socket,
 {
   AutoLock al(&m_clientListLocker);
 
+  const size_t maximumPendingConnections = 16;
+  if (m_nonAuthClientList.size() >= maximumPendingConnections) {
+    m_log->warning(_T("Connection rejected: too many pending handshakes"));
+    delete socket;
+    return;
+  }
+
   ServerConfig *config = Configurator::getInstance()->getServerConfig();
   int timeout = 1000 * config->getIdleTimeout();
 

@@ -34,13 +34,14 @@
 // External listeners
 #include "ClientAuthListener.h"
 #include "network/SecureChannel.h"
+class SocketStream;
 
 class RfbInitializer
 {
 public:
   RfbInitializer(SecureChannel *stream,
                  ClientAuthListener *extAuthListener,
-                 RfbClient *client, bool authAllowed);
+                 RfbClient *client, SocketStream *transport);
   virtual ~RfbInitializer();
 
   void authPhase();
@@ -93,6 +94,7 @@ protected:
   ClientAuthListener *m_extAuthListener;
   RfbClient *m_client;
   SecureChannel *m_secureChannel;
+  SocketStream *m_transport;
 };
 
 #endif // __RFBINITIALIZER_H__

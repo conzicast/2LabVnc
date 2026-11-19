@@ -19,6 +19,7 @@
 #include "util/inttypes.h"
 
 class SecureChannel;
+class StringStorage;
 
 class SecurePasswordException : public IOException
 {
@@ -30,6 +31,8 @@ struct SecureServerCredentials
 {
   static const size_t SALT_SIZE = 16;
   static const size_t VERIFIER_SIZE = 32;
+  static const size_t IDENTITY_PRIVATE_SIZE = 104;
+  static const size_t FINGERPRINT_SIZE = 32;
 
   SecureServerCredentials();
 
@@ -38,6 +41,9 @@ struct SecureServerCredentials
                                         UINT32 iterations);
   void setViewOnlyPassword(const UINT8 *password, size_t passwordLength);
   bool hasDistinctPasswords() const;
+  void getFingerprint(UINT8 fingerprint[FINGERPRINT_SIZE]) const;
+  void formatFingerprint(StringStorage *text) const;
+  static bool parseFingerprint(const TCHAR *text, UINT8 fingerprint[FINGERPRINT_SIZE]);
   static const size_t MIN_PASSWORD_LENGTH = 16;
   static const size_t MAX_PASSWORD_LENGTH = 128;
   static const UINT32 DEFAULT_ITERATIONS = 200000;
@@ -45,6 +51,7 @@ struct SecureServerCredentials
   UINT8 salt[SALT_SIZE];
   UINT8 verifier[VERIFIER_SIZE];
   UINT8 viewOnlyVerifier[VERIFIER_SIZE];
+  UINT8 identityPrivate[IDENTITY_PRIVATE_SIZE];
   UINT32 iterations;
 };
 
@@ -88,7 +95,8 @@ class SecureClientHandshakeImpl;
 class SecureClientHandshake
 {
 public:
-  SecureClientHandshake(const UINT8 *password, size_t passwordLength);
+  SecureClientHandshake(const UINT8 *password, size_t passwordLength,
+                        const UINT8 fingerprint[SecureServerCredentials::FINGERPRINT_SIZE]);
   ~SecureClientHandshake();
 
   void processServerHello(const std::vector<UINT8> &serverHello,
@@ -114,6 +122,7 @@ void runSecureClientHandshake(DataInputStream *input,
                               DataOutputStream *output,
                               SecureChannel *channel,
                               const UINT8 *password,
-                              size_t passwordLength);
+                              size_t passwordLength,
+                              const UINT8 fingerprint[SecureServerCredentials::FINGERPRINT_SIZE]);
 
 #endif // _SECURE_HANDSHAKE_H_

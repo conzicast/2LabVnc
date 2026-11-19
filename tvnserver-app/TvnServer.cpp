@@ -358,7 +358,7 @@ void TvnServer::restartControlServer()
     // FIXME: Memory leak
     SecurityAttributes *pipeSecurity = new SecurityAttributes();
     pipeSecurity->setInheritable();
-    pipeSecurity->shareToAllUsers();
+    pipeSecurity->configureControlPipe();
 
     const unsigned int maxControlServerPipeBufferSize = 0x10000;
     PipeServer *pipeServer = new PipeServer(pipeName.getString(), maxControlServerPipeBufferSize, pipeSecurity);

@@ -61,7 +61,7 @@ Transport *TransportFactory::createSocketServerTransport(const TCHAR *bindHost,
 
 Transport *TransportFactory::createPipeClientTransport(const TCHAR *name)
 {
-  return new NamedPipeTransport(PipeClient::connect(name, 0));
+  return new NamedPipeTransport(PipeClient::connect(name, 0, true));
 }
 
 Transport *TransportFactory::createPipeServerTransport(const TCHAR *name)

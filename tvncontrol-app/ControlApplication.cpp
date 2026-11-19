@@ -227,11 +227,6 @@ int ControlApplication::run()
         } catch (RemoteException &remEx) {
           notifyServerSideException(remEx.getMessage());
         }
-        try {
-          m_serverControl->updateTvnControlProcessId(GetCurrentProcessId());
-        } catch (RemoteException &remEx) {
-          notifyServerSideException(remEx.getMessage());
-        }
       } catch (IOException &) {
         notifyConnectionLost();
         return 1;
@@ -393,7 +388,11 @@ int ControlApplication::runConfigurator(bool configService, bool isRunAsRequeste
 
   ConfigDialog confDialog(configService, 0);
 
-  return confDialog.showModal();
+  int result = confDialog.showModal();
+  if (configService) {
+    reloadConfig();
+  }
+  return result;
 }
 
 void ControlApplication::getCryptedPassword(UINT8 cryptedPass[8], const TCHAR *plainTextPassString)

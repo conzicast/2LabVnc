@@ -72,6 +72,7 @@ private:
   void onAcceptRfbConnectionsClick();
   void onAcceptHttpConnectionsClick();
   void onEncryptionPasswordChange();
+  void showServerFingerprint();
   void onUnsetEncryptionPasswordClick();
   void updateEncryptionPasswordControls();
   void onShowTrayIconCheckBoxClick();

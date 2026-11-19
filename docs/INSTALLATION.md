@@ -25,6 +25,8 @@ Download the MSI for your system architecture, x86 or x64, from
    The eye button shows or hides both fields in the current dialog.
 6. If setup skips the prompt, open Server settings and select **Set...** under
    **Full control and view only**. Apply the settings and enable incoming connections.
+7. Open **Fingerprint...** in Server settings after applying the passwords.
+   Copy the fingerprint and share it through a trusted channel.
 
 With the Windows Firewall option enabled, the installer creates one inbound
 TCP rule for the Server's RFB port. Viewer-only installs add no firewall rules.
@@ -36,6 +38,8 @@ The internal service name is `2LabVncServer` and its display name is
 ## Notification area and Start menu
 
 Click the Server icon in the Windows notification area to open settings.
+Windows prompts for administrator rights when configuring the service.
+Closing the service settings dialog reloads the saved configuration.
 The Start menu includes shortcuts to run the Server in application mode,
 open tray controls and settings, edit offline configuration, and register,
 start, stop, or remove the service.
@@ -45,13 +49,15 @@ start, stop, or remove the service.
 1. Select **2LabVnc Viewer** on the computer you will use to connect.
 2. Launch **2LabVnc Viewer** from the Start menu.
 3. Connect to the Server address and port.
-4. Enter one password for the access level you want.
+4. Enter the fingerprint obtained from your administrator and one password
+   for the access level you want. The Viewer remembers the fingerprint by
+   host and port for direct connections. Enter it manually for a reverse connection.
 
-## Upgrade from 1.0.x
+## Upgrade from a version before 1.2.0
 
-Update the Server and Viewer together. Set the new password pair on the Server
-before connecting. The 1.0.x installers use an older, incompatible connection
-protocol. See the [encryption guide](ENCRYPTION.md) for details.
+Arrange local access to the Server first. Update the Server and Viewer together,
+set two fresh role passwords on the Server, and distribute its fingerprint.
+Earlier versions use an incompatible protocol. See the [encryption guide](ENCRYPTION.md).
 
 ## Run alongside TightVNC
 

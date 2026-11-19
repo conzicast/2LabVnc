@@ -156,6 +156,10 @@ public:
   void deleteControlPassword();
 
   bool hasEncryptionCredentials();
+  bool hasUsableEncryptionCredentials();
+  void redactEncryptionCredentials();
+  void getEncryptionFingerprint(StringStorage *fingerprint);
+  void preserveServerIdentity(SecureServerCredentials *replacement);
   void getEncryptionCredentials(SecureServerCredentials *credentials);
   void setEncryptionCredentials(const SecureServerCredentials &credentials);
   void deleteEncryptionCredentials();
@@ -329,6 +333,7 @@ protected:
   unsigned char m_readonlyPassword[VNC_PASSWORD_SIZE];
   unsigned char m_controlPassword[VNC_PASSWORD_SIZE];
   SecureServerCredentials m_encryptionCredentials;
+  StringStorage m_publicEncryptionFingerprint;
 
   //
   // Configurator from Administration tab

@@ -18,7 +18,11 @@ namespace
 {
   const size_t SHA256_SIZE = 32;
   const size_t ECDH_PUBLIC_BLOB_SIZE = 72;
-  const size_t SERVER_HELLO_SIZE = 132;
+  const size_t SERVER_HELLO_PREFIX_SIZE = 132;
+  const size_t IDENTITY_PUBLIC_SIZE = 72;
+  const size_t IDENTITY_SIGNATURE_SIZE = 64;
+  const size_t SERVER_HELLO_SIGNED_SIZE = SERVER_HELLO_PREFIX_SIZE + IDENTITY_PUBLIC_SIZE;
+  const size_t SERVER_HELLO_SIZE = SERVER_HELLO_SIGNED_SIZE + IDENTITY_SIGNATURE_SIZE;
   const size_t CLIENT_RESPONSE_WITHOUT_PROOF_SIZE = 108;
   const size_t CLIENT_RESPONSE_SIZE = 140;
   const size_t SERVER_FINISH_SIZE = 36;
@@ -26,7 +30,7 @@ namespace
   const UINT32 MIN_PBKDF2_ITERATIONS = 100000;
   const UINT32 MAX_PBKDF2_ITERATIONS = 2000000;
 
-  const UINT8 SERVER_HELLO_MAGIC[4] = { 'T', 'V', 'H', '1' };
+  const UINT8 SERVER_HELLO_MAGIC[4] = { 'T', 'V', 'H', '3' };
   const UINT8 CLIENT_RESPONSE_MAGIC[4] = { 'T', 'V', 'C', '1' };
   const UINT8 SERVER_FINISH_MAGIC[4] = { 'T', 'V', 'S', '1' };
   const UINT8 CLIENT_ACTIVATION_MAGIC[4] = { 'T', 'V', 'A', '1' };
@@ -400,6 +404,92 @@ namespace
     BCRYPT_KEY_HANDLE m_key;
   };
 
+  // Win7 CNG provides ECDSA P-256. The identity key signs only this protocol's
+  // hello, while a new ECDH key still protects each individual session.
+  class IdentityKey
+  {
+  public:
+    IdentityKey() : m_provider(0), m_key(0)
+    {
+      requireCryptoSuccess(BCryptOpenAlgorithmProvider(&m_provider,
+        BCRYPT_ECDSA_P256_ALGORITHM, 0, 0), _T("Open ECDSA provider"));
+    }
+
+    ~IdentityKey()
+    {
+      if (m_key != 0) BCryptDestroyKey(m_key);
+      BCryptCloseAlgorithmProvider(m_provider, 0);
+    }
+
+    void generate()
+    {
+      requireCryptoSuccess(BCryptGenerateKeyPair(m_provider, &m_key, 256, 0),
+                           _T("Generate server identity"));
+      requireCryptoSuccess(BCryptFinalizeKeyPair(m_key, 0), _T("Finalize server identity"));
+    }
+
+    void importKey(LPCWSTR type, const UINT8 *blob, ULONG size)
+    {
+      requireCryptoSuccess(BCryptImportKeyPair(m_provider, 0, type, &m_key,
+        const_cast<PUCHAR>(blob), size, 0), _T("Import server identity"));
+    }
+
+    void exportKey(LPCWSTR type, UINT8 *blob, ULONG size) const
+    {
+      ULONG written = 0;
+      requireCryptoSuccess(BCryptExportKey(m_key, 0, type, blob, size, &written, 0),
+                           _T("Export server identity"));
+      if (written != size) throw IOException(_T("Invalid server identity key size"));
+    }
+
+    void sign(UINT8 *digest, UINT8 *signature) const
+    {
+      ULONG written = 0;
+      requireCryptoSuccess(BCryptSignHash(m_key, 0, digest, SHA256_SIZE,
+        signature, IDENTITY_SIGNATURE_SIZE, &written, 0), _T("Sign server hello"));
+      if (written != IDENTITY_SIGNATURE_SIZE) {
+        throw IOException(_T("Invalid server identity signature size"));
+      }
+    }
+
+    bool verify(UINT8 *digest, const UINT8 *signature) const
+    {
+      return ntSuccess(BCryptVerifySignature(m_key, 0, digest, SHA256_SIZE,
+        const_cast<PUCHAR>(signature), IDENTITY_SIGNATURE_SIZE, 0));
+    }
+
+  private:
+    IdentityKey(const IdentityKey &);
+    IdentityKey &operator=(const IdentityKey &);
+    BCRYPT_ALG_HANDLE m_provider;
+    BCRYPT_KEY_HANDLE m_key;
+  };
+
+  void hashSignedHello(const UINT8 *hello, UINT8 digest[SHA256_SIZE])
+  {
+    std::vector<UINT8> input;
+    appendLabel(&input, "2LabVnc server identity v3");
+    appendBytes(&input, hello, SERVER_HELLO_SIGNED_SIZE);
+    calculateHash(&input.front(), input.size(), digest);
+  }
+
+  void verifyServerIdentity(const UINT8 *hello, const UINT8 *trustedFingerprint)
+  {
+    const UINT8 *publicKey = hello + SERVER_HELLO_PREFIX_SIZE;
+    UINT8 fingerprint[SHA256_SIZE];
+    calculateHash(publicKey, IDENTITY_PUBLIC_SIZE, fingerprint);
+    if (!fixedTimeEquals(fingerprint, trustedFingerprint, sizeof(fingerprint))) {
+      throw IOException(_T("Server identity fingerprint does not match. Verify it with the administrator."));
+    }
+    IdentityKey identity;
+    identity.importKey(BCRYPT_ECCPUBLIC_BLOB, publicKey, IDENTITY_PUBLIC_SIZE);
+    UINT8 digest[SHA256_SIZE];
+    hashSignedHello(hello, digest);
+    if (!identity.verify(digest, hello + SERVER_HELLO_SIGNED_SIZE)) {
+      throw IOException(_T("Server identity signature is invalid"));
+    }
+  }
+
   void calculateTranscriptHash(const std::vector<UINT8> &serverHello,
                                const std::vector<UINT8> &clientResponsePrefix,
                                UINT8 output[SHA256_SIZE])
@@ -417,7 +507,7 @@ namespace
                              UINT8 handshakeSecret[SHA256_SIZE])
   {
     std::vector<UINT8> input;
-    appendLabel(&input, "2LabVnc handshake v2");
+    appendLabel(&input, "2LabVnc handshake v3");
     appendBytes(&input, ecdhSecret, SHA256_SIZE);
     appendBytes(&input, transcriptHash, SHA256_SIZE);
     calculateHmac(verifier, SHA256_SIZE,
@@ -505,16 +595,18 @@ public:
 class SecureClientHandshakeImpl
 {
 public:
-  SecureClientHandshakeImpl(const UINT8 *sourcePassword, size_t passwordLength)
+  SecureClientHandshakeImpl(const UINT8 *sourcePassword, size_t passwordLength,
+                            const UINT8 *trustedFingerprint)
   : keyPair(0),
     responseCreated(false),
     completed(false),
     activationCreated(false)
   {
-    if (sourcePassword == 0 || passwordLength == 0) {
+    if (sourcePassword == 0 || passwordLength == 0 || trustedFingerprint == 0) {
       throw IOException(_T("Encryption password cannot be empty"));
     }
     password.assign(sourcePassword, sourcePassword + passwordLength);
+    memcpy(fingerprint, trustedFingerprint, sizeof(fingerprint));
     memset(handshakeSecret, 0, sizeof(handshakeSecret));
     memset(transcriptHash, 0, sizeof(transcriptHash));
   }
@@ -530,6 +622,7 @@ public:
   }
 
   std::vector<UINT8> password;
+  UINT8 fingerprint[SecureServerCredentials::FINGERPRINT_SIZE];
   EcdhKeyPair *keyPair;
   UINT8 handshakeSecret[SHA256_SIZE];
   UINT8 transcriptHash[SHA256_SIZE];
@@ -544,6 +637,7 @@ SecureServerCredentials::SecureServerCredentials()
   memset(salt, 0, sizeof(salt));
   memset(verifier, 0, sizeof(verifier));
   memset(viewOnlyVerifier, 0, sizeof(viewOnlyVerifier));
+  memset(identityPrivate, 0, sizeof(identityPrivate));
 }
 
 SecureServerCredentials SecureServerCredentials::create(
@@ -560,6 +654,10 @@ SecureServerCredentials SecureServerCredentials::create(
   derivePasswordVerifier(password, passwordLength,
                          credentials.salt, credentials.iterations,
                          credentials.verifier);
+  IdentityKey identity;
+  identity.generate();
+  identity.exportKey(BCRYPT_ECCPRIVATE_BLOB, credentials.identityPrivate,
+                     sizeof(credentials.identityPrivate));
   return credentials;
 }
 
@@ -576,11 +674,54 @@ void SecureServerCredentials::setViewOnlyPassword(const UINT8 *password,
 bool SecureServerCredentials::hasDistinctPasswords() const
 {
   const UINT8 emptyVerifier[VERIFIER_SIZE] = {};
-  return iterations >= MIN_PBKDF2_ITERATIONS &&
+  BCRYPT_ECCKEY_BLOB identityHeader;
+  memcpy(&identityHeader, identityPrivate, sizeof(identityHeader));
+  return identityHeader.dwMagic == BCRYPT_ECDSA_PRIVATE_P256_MAGIC &&
+         identityHeader.cbKey == SHA256_SIZE &&
+         iterations >= MIN_PBKDF2_ITERATIONS &&
          iterations <= MAX_PBKDF2_ITERATIONS &&
          !fixedTimeEquals(verifier, emptyVerifier, VERIFIER_SIZE) &&
          !fixedTimeEquals(viewOnlyVerifier, emptyVerifier, VERIFIER_SIZE) &&
          !fixedTimeEquals(verifier, viewOnlyVerifier, VERIFIER_SIZE);
+}
+
+void SecureServerCredentials::getFingerprint(UINT8 fingerprint[FINGERPRINT_SIZE]) const
+{
+  IdentityKey identity;
+  identity.importKey(BCRYPT_ECCPRIVATE_BLOB, identityPrivate, sizeof(identityPrivate));
+  UINT8 publicKey[IDENTITY_PUBLIC_SIZE];
+  identity.exportKey(BCRYPT_ECCPUBLIC_BLOB, publicKey, sizeof(publicKey));
+  calculateHash(publicKey, sizeof(publicKey), fingerprint);
+}
+
+void SecureServerCredentials::formatFingerprint(StringStorage *text) const
+{
+  UINT8 fingerprint[FINGERPRINT_SIZE];
+  getFingerprint(fingerprint);
+  const TCHAR hex[] = _T("0123456789ABCDEF");
+  TCHAR encoded[2 * FINGERPRINT_SIZE + 1] = {};
+  for (size_t index = 0; index < FINGERPRINT_SIZE; ++index) {
+    encoded[2 * index] = hex[fingerprint[index] >> 4];
+    encoded[2 * index + 1] = hex[fingerprint[index] & 15];
+  }
+  text->setString(encoded);
+}
+
+bool SecureServerCredentials::parseFingerprint(const TCHAR *text,
+                                               UINT8 fingerprint[FINGERPRINT_SIZE])
+{
+  if (text == 0 || _tcslen(text) != 2 * FINGERPRINT_SIZE) return false;
+  for (size_t index = 0; index < 2 * FINGERPRINT_SIZE; ++index) {
+    const TCHAR digit = text[index];
+    int nibble = -1;
+    if (digit >= _T('0') && digit <= _T('9')) nibble = digit - _T('0');
+    if (digit >= _T('A') && digit <= _T('F')) nibble = digit - _T('A') + 10;
+    if (digit >= _T('a') && digit <= _T('f')) nibble = digit - _T('a') + 10;
+    if (nibble < 0) return false;
+    if (index % 2 == 0) fingerprint[index / 2] = static_cast<UINT8>(nibble << 4);
+    else fingerprint[index / 2] |= static_cast<UINT8>(nibble);
+  }
+  return true;
 }
 
 SecureSessionKeys::SecureSessionKeys()
@@ -627,6 +768,14 @@ void SecureServerHandshake::createHello(std::vector<UINT8> *serverHello)
          SecureServerCredentials::SALT_SIZE);
   randomBytes(message + 24, 32);
   memcpy(message + 56, &publicBlob.front(), publicBlob.size());
+  IdentityKey identity;
+  identity.importKey(BCRYPT_ECCPRIVATE_BLOB, m_impl->credentials.identityPrivate,
+                     sizeof(m_impl->credentials.identityPrivate));
+  identity.exportKey(BCRYPT_ECCPUBLIC_BLOB, message + SERVER_HELLO_PREFIX_SIZE,
+                     IDENTITY_PUBLIC_SIZE);
+  UINT8 digest[SHA256_SIZE];
+  hashSignedHello(message, digest);
+  identity.sign(digest, message + SERVER_HELLO_SIGNED_SIZE);
 
   *serverHello = m_impl->serverHello;
   m_impl->helloCreated = true;
@@ -700,8 +849,9 @@ void SecureServerHandshake::processClientResponse(
 }
 
 SecureClientHandshake::SecureClientHandshake(const UINT8 *password,
-                                             size_t passwordLength)
-: m_impl(new SecureClientHandshakeImpl(password, passwordLength))
+                                             size_t passwordLength,
+                                             const UINT8 *fingerprint)
+: m_impl(new SecureClientHandshakeImpl(password, passwordLength, fingerprint))
 {
 }
 
@@ -723,6 +873,7 @@ void SecureClientHandshake::processServerHello(
     throw IOException(_T("Invalid server handshake marker"));
   }
 
+  verifyServerIdentity(&serverHello.front(), m_impl->fingerprint);
   UINT32 iterations = loadUInt32(&serverHello[4]);
   UINT8 verifier[SHA256_SIZE];
   derivePasswordVerifier(&m_impl->password.front(), m_impl->password.size(),
@@ -865,13 +1016,14 @@ void runSecureClientHandshake(DataInputStream *input,
                               DataOutputStream *output,
                               SecureChannel *channel,
                               const UINT8 *password,
-                              size_t passwordLength)
+                              size_t passwordLength,
+                              const UINT8 *fingerprint)
 {
   if (input == 0 || output == 0 || channel == 0) {
     throw IOException(_T("Secure client handshake has an invalid stream"));
   }
 
-  SecureClientHandshake handshake(password, passwordLength);
+  SecureClientHandshake handshake(password, passwordLength, fingerprint);
   SecureSessionKeys keys;
   std::vector<UINT8> serverHello(SERVER_HELLO_SIZE);
   std::vector<UINT8> clientResponse;

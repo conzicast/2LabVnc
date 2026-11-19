@@ -35,6 +35,9 @@
 
 #include "util/StringTable.h"
 #include "util/MacroCommand.h"
+#include "win-system/Environment.h"
+#include "win-system/Shell.h"
+#include "win-system/SystemException.h"
 
 #include "tvnserver/resource.h"
 
@@ -207,6 +210,19 @@ void ControlTrayIcon::onConfigurationMenuItemClick()
   }
 
   Configurator::getInstance()->setServiceFlag(isConnectedToService);
+  if (isConnectedToService) {
+    // Keep the tray process unprivileged. Only the service settings are elevated.
+    StringStorage executable;
+    Environment::getCurrentModulePath(&executable);
+    try {
+      Shell::runAsAdmin(executable.getString(), _T("-configservice"));
+    } catch (const SystemException &error) {
+      if (error.getErrorCode() != ERROR_CANCELLED) {
+        MessageBox(getWindow(), error.getMessage(), _T("2LabVnc"), MB_OK | MB_ICONERROR);
+      }
+    }
+    return;
+  }
 
   // Copy running tightvnc config to our global server config.
   if (!m_configDialog->isCreated()) {

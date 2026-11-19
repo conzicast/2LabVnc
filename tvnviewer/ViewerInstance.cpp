@@ -28,6 +28,8 @@
 #include "viewer-core/FileTransferCapability.h"
 #include "AuthenticationDialog.h"
 #include "util/Utf8StringStorage.h"
+#include "network/SecureHandshake.h"
+#include "client-config-lib/ViewerSettingsManager.h"
 
 ViewerInstance::ViewerInstance(WindowsApplication *application,
                                ConnectionData *condata,
@@ -112,6 +114,19 @@ void ViewerInstance::start()
   AuthenticationDialog encryptionDialog(true);
   StringStorage encryptionHost = m_condata.getHost();
   encryptionDialog.setHostName(&encryptionHost);
+  StringStorage fingerprintSetting;
+  SettingsManager *settings = ViewerSettingsManager::getInstance();
+  if (m_socket == 0) {
+    StringStorage host;
+    m_condata.getReducedHost(&host);
+    host.toLowerCase();
+    fingerprintSetting.format(_T("ServerFingerprint.%s.%u"), host.getString(),
+                              static_cast<unsigned>(m_condata.getPort()));
+    StringStorage savedFingerprint;
+    if (settings->getString(fingerprintSetting.getString(), &savedFingerprint)) {
+      encryptionDialog.setServerFingerprint(savedFingerprint);
+    }
+  }
   if (!encryptionDialog.showModal()) {
     throw AuthCanceledException();
   }
@@ -119,9 +134,17 @@ void ViewerInstance::start()
   if (encryptionPassword.getLength() == 0) {
     throw Exception(_T("Encryption password cannot be empty"));
   }
+  UINT8 fingerprint[SecureServerCredentials::FINGERPRINT_SIZE];
+  const StringStorage &fingerprintText = encryptionDialog.getServerFingerprint();
+  if (!SecureServerCredentials::parseFingerprint(fingerprintText.getString(), fingerprint)) {
+    throw Exception(_T("Invalid trusted server fingerprint"));
+  }
+  if (!fingerprintSetting.isEmpty()) {
+    settings->setString(fingerprintSetting.getString(), fingerprintText.getString());
+  }
   m_viewerCore.setEncryptionPassword(
     reinterpret_cast<const UINT8 *>(encryptionPassword.getString()),
-    encryptionPassword.getLength());
+    encryptionPassword.getLength(), fingerprint);
 
   if (m_socket) {
     m_viewerCore.start(m_socket,

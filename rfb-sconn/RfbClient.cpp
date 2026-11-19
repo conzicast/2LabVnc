@@ -191,13 +191,14 @@ void RfbClient::execute()
   EchoExtensionRequestHandler *echoExtension = 0;
 
   RfbInitializer rfbInitializer(&secureChannel, m_extAuthListener, this,
-                                !m_isOutgoing);
+                                &sockStream);
 
   try {
     // First initialization phase
     try {
       m_log->info(_T("Entering RFB initialization phase 1"));
       rfbInitializer.authPhase();
+      sockStream.clearDeadline(m_idleTimeout);
       setClientState(IN_AUTH);
       m_log->debug(_T("RFB initialization phase 1 completed"));
 

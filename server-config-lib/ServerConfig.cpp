@@ -159,6 +159,9 @@ void ServerConfig::serialize(DataOutputStream *output)
                      SecureServerCredentials::VERIFIER_SIZE);
   output->writeFully(m_encryptionCredentials.viewOnlyVerifier,
                      SecureServerCredentials::VERIFIER_SIZE);
+  output->writeFully(m_encryptionCredentials.identityPrivate,
+                     SecureServerCredentials::IDENTITY_PRIVATE_SIZE);
+  output->writeUTF8(m_publicEncryptionFingerprint.getString());
   output->writeUInt8(m_showEncryptionNotice ? 1 : 0);
 }
 
@@ -244,8 +247,17 @@ void ServerConfig::deserialize(DataInputStream *input)
                    SecureServerCredentials::VERIFIER_SIZE);
   input->readFully(m_encryptionCredentials.viewOnlyVerifier,
                    SecureServerCredentials::VERIFIER_SIZE);
-  m_hasEncryptionCredentials = m_hasEncryptionCredentials &&
-                              m_encryptionCredentials.hasDistinctPasswords();
+  input->readFully(m_encryptionCredentials.identityPrivate,
+                   SecureServerCredentials::IDENTITY_PRIVATE_SIZE);
+  // Control IPC includes the terminating byte in a UTF-8 field's length.
+  input->readUTF8(&m_publicEncryptionFingerprint,
+                  2 * SecureServerCredentials::FINGERPRINT_SIZE + 1);
+  if (!m_hasEncryptionCredentials || m_encryptionCredentials.iterations == 0) {
+    // Zero iterations carries only the configured flag in control IPC.
+    SecureZeroMemory(&m_encryptionCredentials, sizeof(m_encryptionCredentials));
+  } else if (!m_encryptionCredentials.hasDistinctPasswords()) {
+    throw IOException(_T("Invalid connection credentials in configuration"));
+  }
   m_showEncryptionNotice = input->readUInt8() != 0;
 }
 
@@ -267,6 +279,40 @@ bool ServerConfig::hasEncryptionCredentials()
   return m_hasEncryptionCredentials;
 }
 
+bool ServerConfig::hasUsableEncryptionCredentials()
+{
+  AutoLock lock(this);
+  return m_hasEncryptionCredentials && m_encryptionCredentials.hasDistinctPasswords();
+}
+
+void ServerConfig::redactEncryptionCredentials()
+{
+  AutoLock lock(this);
+  if (m_hasEncryptionCredentials && m_encryptionCredentials.hasDistinctPasswords()) {
+    m_encryptionCredentials.formatFingerprint(&m_publicEncryptionFingerprint);
+  }
+  SecureZeroMemory(&m_encryptionCredentials, sizeof(m_encryptionCredentials));
+}
+
+void ServerConfig::getEncryptionFingerprint(StringStorage *fingerprint)
+{
+  AutoLock lock(this);
+  if (m_hasEncryptionCredentials && m_encryptionCredentials.hasDistinctPasswords()) {
+    m_encryptionCredentials.formatFingerprint(fingerprint);
+  } else {
+    *fingerprint = m_publicEncryptionFingerprint;
+  }
+}
+
+void ServerConfig::preserveServerIdentity(SecureServerCredentials *replacement)
+{
+  AutoLock lock(this);
+  if (m_hasEncryptionCredentials && m_encryptionCredentials.hasDistinctPasswords()) {
+    memcpy(replacement->identityPrivate, m_encryptionCredentials.identityPrivate,
+           sizeof(replacement->identityPrivate));
+  }
+}
+
 void ServerConfig::getEncryptionCredentials(
   SecureServerCredentials *credentials)
 {
@@ -274,7 +320,7 @@ void ServerConfig::getEncryptionCredentials(
     throw Exception(_T("Encryption credentials destination is null"));
   }
   AutoLock l(this);
-  if (!m_hasEncryptionCredentials) {
+  if (!m_hasEncryptionCredentials || !m_encryptionCredentials.hasDistinctPasswords()) {
     throw Exception(_T("Encryption password is not configured"));
   }
   *credentials = m_encryptionCredentials;
@@ -294,6 +340,7 @@ void ServerConfig::deleteEncryptionCredentials()
   SecureZeroMemory(&m_encryptionCredentials,
                    sizeof(m_encryptionCredentials));
   m_hasEncryptionCredentials = false;
+  m_publicEncryptionFingerprint.setString(_T(""));
 }
 
 bool ServerConfig::getShowTrayIconFlag()

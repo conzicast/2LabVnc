@@ -39,6 +39,8 @@ public:
 
   // this function returns sets the name of host in dialog
   void setHostName(const StringStorage *hostname);
+  void setServerFingerprint(const StringStorage &fingerprint);
+  const StringStorage &getServerFingerprint() const;
 
 protected:
   BOOL onCommand(UINT controlID, UINT notificationID);
@@ -46,8 +48,10 @@ protected:
 
   TextBox m_password;
   TextBox m_hostname;
+  TextBox m_fingerprint;
   StringStorage m_strPassword;
   StringStorage m_strHost;
+  StringStorage m_strFingerprint;
   bool m_encryptionMode;
 };
 

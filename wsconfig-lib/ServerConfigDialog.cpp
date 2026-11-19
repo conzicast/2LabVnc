@@ -32,6 +32,41 @@
 #include "UIDataAccess.h"
 #include <limits.h>
 
+namespace
+{
+  class ServerFingerprintDialog : public BaseDialog
+  {
+  public:
+    ServerFingerprintDialog(Control *parent, const StringStorage &fingerprint)
+      : BaseDialog(IDD_SERVER_FINGERPRINT), m_fingerprint(fingerprint)
+    {
+      setParent(parent);
+    }
+
+  protected:
+    BOOL onInitDialog()
+    {
+      HWND field = GetDlgItem(m_ctrlThis.getWindow(), IDC_SERVER_FINGERPRINT_VALUE);
+      SetWindowText(field, m_fingerprint.getString());
+      SetFocus(field);
+      SendMessage(field, EM_SETSEL, 0, -1);
+      return FALSE;
+    }
+
+    BOOL onCommand(UINT controlId, UINT)
+    {
+      if (controlId == IDOK || controlId == IDCANCEL) {
+        kill(controlId);
+        return TRUE;
+      }
+      return FALSE;
+    }
+
+  private:
+    StringStorage m_fingerprint;
+  };
+}
+
 ServerConfigDialog::ServerConfigDialog()
 : BaseDialog(IDD_CONFIG_SERVER_PAGE), m_parentDialog(NULL),
   m_encryptionCredentialsChanged(false),
@@ -82,6 +117,9 @@ BOOL ServerConfigDialog::onCommand(UINT controlID, UINT notificationID)
       break;
     case IDC_ENCRYPTION_PASSWORD:
       onEncryptionPasswordChange();
+      break;
+    case IDC_SHOW_SERVER_FINGERPRINT:
+      showServerFingerprint();
       break;
     case IDC_UNSET_ENCRYPTION_PASSWORD_BUTTON:
       onUnsetEncryptionPasswordClick();
@@ -419,6 +457,7 @@ void ServerConfigDialog::onEncryptionPasswordChange()
     if (!ChangePasswordDialog::promptForConnectionPasswords(&m_ctrlThis, &credentials)) {
       return;
     }
+    m_config->preserveServerIdentity(&credentials);
     m_pendingEncryptionCredentials = credentials;
   } catch (const Exception &error) {
     SecureZeroMemory(&credentials, sizeof(credentials));
@@ -431,6 +470,24 @@ void ServerConfigDialog::onEncryptionPasswordChange()
   m_encryptionCredentialsChanged = true;
   updateEncryptionPasswordControls();
   ((ConfigDialog *)m_parentDialog)->updateApplyButtonState();
+}
+
+void ServerConfigDialog::showServerFingerprint()
+{
+  try {
+    StringStorage fingerprint;
+    m_config->getEncryptionFingerprint(&fingerprint);
+    if (fingerprint.isEmpty()) {
+      MessageBox(m_ctrlThis.getWindow(), _T("Set and apply both access passwords first."),
+                 _T("2LabVnc Server Identity"), MB_OK | MB_ICONINFORMATION);
+      return;
+    }
+    ServerFingerprintDialog dialog(&m_ctrlThis, fingerprint);
+    dialog.showModal();
+  } catch (const Exception &error) {
+    MessageBox(m_ctrlThis.getWindow(), error.getMessage(),
+               _T("2LabVnc Server Identity"), MB_OK | MB_ICONERROR);
+  }
 }
 
 void ServerConfigDialog::onUnsetEncryptionPasswordClick()

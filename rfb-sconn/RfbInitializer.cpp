@@ -36,17 +36,24 @@
 #include "util/AnsiStringStorage.h"
 #include "tvnserver-app/NamingDefs.h"
 #include "network/SecureHandshake.h"
+#include "network/socket/SocketStream.h"
 #include "rfb/TunnelDefs.h"
+
+namespace
+{
+  const DWORD HANDSHAKE_DEADLINE_MS = 15000;
+}
 
 RfbInitializer::RfbInitializer(SecureChannel *stream,
                                ClientAuthListener *extAuthListener,
-                               RfbClient *client, bool authAllowed)
+                               RfbClient *client, SocketStream *transport)
 : m_shared(false),
   m_tightEnabled(false),
   m_minorVerNum(0),
   m_extAuthListener(extAuthListener),
   m_client(client),
   m_secureChannel(stream),
+  m_transport(transport),
   m_viewOnlyAuth(false)
 {
   m_output = new DataOutputStream(stream);
@@ -61,6 +68,7 @@ RfbInitializer::~RfbInitializer()
 
 void RfbInitializer::authPhase()
 {
+  m_transport->setDeadline(HANDSHAKE_DEADLINE_MS);
   initVersion();
   initAuthenticate();
   readClientInit();
@@ -165,7 +173,10 @@ void RfbInitializer::doTightAuth()
 
   // The tunnel already authenticated the client and assigned its role.
   m_output->writeUInt32(0);
+  // The local approval prompt has its own configured timeout.
+  m_transport->clearDeadline(0);
   m_extAuthListener->onCheckAccessControl(m_client);
+  m_transport->setDeadline(HANDSHAKE_DEADLINE_MS);
   if (m_minorVerNum >= 8) {
     m_output->writeUInt32(0); // Successful RFB security result.
   }

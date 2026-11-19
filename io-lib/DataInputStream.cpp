@@ -54,6 +54,9 @@ void DataInputStream::readFully(void *buffer, size_t len)
   size_t left = len;
   while (totalRead < len) {
     size_t read = m_inputStream->read(typedBuffer + totalRead, left);
+    if (read == 0) {
+      throw IOException(_T("Unexpected end of stream"));
+    }
     left -= read;
     totalRead += read;
   }
@@ -126,9 +129,12 @@ INT64 DataInputStream::readInt64()
   return (INT64)readUInt64();
 }
 
-void DataInputStream::readUTF8(StringStorage *storage)
+void DataInputStream::readUTF8(StringStorage *storage, UINT32 maxLength)
 {
   UINT32 sizeInBytes = readUInt32();
+  if (sizeInBytes > maxLength) {
+    throw IOException(_T("Incoming text exceeds the configured size limit"));
+  }
   if (sizeInBytes > 0) {
     std::vector<char> buffer(sizeInBytes);
     readFully(&buffer.front(), sizeInBytes);

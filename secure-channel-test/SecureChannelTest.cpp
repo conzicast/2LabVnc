@@ -15,6 +15,8 @@
 
 #include "network/SecureChannel.h"
 #include "network/SecureHandshake.h"
+#include "util/StringStorage.h"
+#include "server-config-lib/ServerConfig.h"
 
 class MemoryChannel : public Channel
 {
@@ -246,9 +248,11 @@ namespace
   {
     SecureServerCredentials credentials = makeTestCredentials(serverPassword);
     SecureServerHandshake server(credentials);
+    UINT8 fingerprint[SecureServerCredentials::FINGERPRINT_SIZE];
+    credentials.getFingerprint(fingerprint);
     SecureClientHandshake client(
       reinterpret_cast<const UINT8 *>(clientPassword),
-      strlen(clientPassword));
+      strlen(clientPassword), fingerprint);
 
     std::vector<UINT8> serverHello;
     std::vector<UINT8> clientResponse;
@@ -346,8 +350,10 @@ namespace
     const char password[] = "long dedicated encryption password";
     SecureServerCredentials credentials = makeTestCredentials(password);
     SecureServerHandshake server(credentials);
+    UINT8 fingerprint[SecureServerCredentials::FINGERPRINT_SIZE];
+    credentials.getFingerprint(fingerprint);
     SecureClientHandshake client(reinterpret_cast<const UINT8 *>(password),
-                                 strlen(password));
+                                 strlen(password), fingerprint);
     SecureSessionKeys serverKeys;
     SecureSessionKeys clientKeys;
 
@@ -373,8 +379,10 @@ namespace
     const char password[] = "long dedicated encryption password";
     SecureServerCredentials credentials = makeTestCredentials(password);
     SecureServerHandshake server(credentials);
+    UINT8 fingerprint[SecureServerCredentials::FINGERPRINT_SIZE];
+    credentials.getFingerprint(fingerprint);
     SecureClientHandshake client(reinterpret_cast<const UINT8 *>(password),
-                                 strlen(password));
+                                 strlen(password), fingerprint);
     SecureSessionKeys serverKeys;
     SecureSessionKeys clientKeys;
     std::vector<UINT8> serverHello;
@@ -460,9 +468,11 @@ namespace
     });
 
     const char *clientPassword = viewOnly ? VIEW_ONLY_PASSWORD : password;
+    UINT8 fingerprint[SecureServerCredentials::FINGERPRINT_SIZE];
+    credentials.getFingerprint(fingerprint);
     runSecureClientHandshake(&clientInput, &clientOutput, &clientChannel,
                              reinterpret_cast<const UINT8 *>(clientPassword),
-                             strlen(clientPassword));
+                             strlen(clientPassword), fingerprint);
     clientOutput.writeFully(&request.front(), request.size());
     clientOutput.flush();
     std::vector<UINT8> receivedResponse(response.size());
@@ -476,6 +486,73 @@ namespace
     closesocket(serverSocket);
     closesocket(clientSocket);
     WSACleanup();
+  }
+
+  void testServerIdentityRejected(bool useTrustedKey)
+  {
+    const char password[] = "server identity validation test password";
+    SecureServerCredentials credentials = makeTestCredentials(password);
+    SecureServerHandshake server(credentials);
+    UINT8 fingerprint[SecureServerCredentials::FINGERPRINT_SIZE];
+    credentials.getFingerprint(fingerprint);
+    if (!useTrustedKey) fingerprint[0] ^= 1;
+    SecureClientHandshake client(reinterpret_cast<const UINT8 *>(password),
+                                 strlen(password), fingerprint);
+    std::vector<UINT8> hello;
+    std::vector<UINT8> response;
+    server.createHello(&hello);
+    if (useTrustedKey) hello.back() ^= 1;
+    bool rejected = false;
+    try {
+      client.processServerHello(hello, &response);
+    } catch (const IOException &) {
+      rejected = true;
+    }
+    require(rejected && response.empty(),
+            "the Viewer must reject an untrusted or unsigned hello before creating a proof");
+  }
+
+  void testIncomingTextBounds()
+  {
+    MemoryChannel channel(32, 32);
+    DataOutputStream output(&channel);
+    DataInputStream input(&channel);
+    output.writeUInt32(8);
+    StringStorage text;
+    bool rejected = false;
+    try {
+      input.readUTF8(&text, 4);
+    } catch (const IOException &) {
+      rejected = true;
+    }
+    require(rejected, "text length must be rejected before reading the payload");
+  }
+
+  void testControlConfigRedaction()
+  {
+    SecureServerCredentials credentials = makeTestCredentials("control config test password");
+    ServerConfig original;
+    original.setEncryptionCredentials(credentials);
+    ServerConfig sanitized = original;
+    sanitized.redactEncryptionCredentials();
+    MemoryChannel channel(128, 128);
+    DataOutputStream output(&channel);
+    DataInputStream input(&channel);
+    sanitized.serialize(&output);
+    ServerConfig received;
+    received.deserialize(&input);
+    require(received.hasEncryptionCredentials() && !received.hasUsableEncryptionCredentials(),
+            "control reply must carry the configured flag without usable secrets");
+    StringStorage expected;
+    StringStorage actual;
+    original.getEncryptionFingerprint(&expected);
+    received.getEncryptionFingerprint(&actual);
+    require(expected.isEqualTo(&actual), "control reply must retain the public fingerprint");
+    SecureServerCredentials replacement = makeTestCredentials("replacement full control password");
+    original.preserveServerIdentity(&replacement);
+    StringStorage afterRotation;
+    replacement.formatFingerprint(&afterRotation);
+    require(expected.isEqualTo(&afterRotation), "changing passwords must preserve identity");
   }
 
   void benchmarkEncryptedChannel()
@@ -509,19 +586,28 @@ namespace
 
 int main()
 {
-  testPassThrough();
-  testEncryptedRoundTrip();
-  testTamperDetection();
-  testSequenceDetection();
-  testAuthenticatedHandshake();
-  testViewOnlyPassword();
-  testUnusablePasswordPairs();
-  testWrongPasswordRejected();
-  testServerProofTamperDetection();
-  testActivationProofTamperDetection();
-  testSocketHandshakeAndEncryptedTraffic(false);
-  testSocketHandshakeAndEncryptedTraffic(true);
-  benchmarkEncryptedChannel();
+  try {
+    testPassThrough();
+    testEncryptedRoundTrip();
+    testTamperDetection();
+    testSequenceDetection();
+    testAuthenticatedHandshake();
+    testViewOnlyPassword();
+    testUnusablePasswordPairs();
+    testServerIdentityRejected(false);
+    testServerIdentityRejected(true);
+    testIncomingTextBounds();
+    testControlConfigRedaction();
+    testWrongPasswordRejected();
+    testServerProofTamperDetection();
+    testActivationProofTamperDetection();
+    testSocketHandshakeAndEncryptedTraffic(false);
+    testSocketHandshakeAndEncryptedTraffic(true);
+    benchmarkEncryptedChannel();
+  } catch (const Exception &error) {
+    std::wcerr << L"FAILED: " << error.getMessage() << std::endl;
+    return 1;
+  }
   std::cout << "SecureChannel tests passed" << std::endl;
   return 0;
 }

@@ -52,11 +52,17 @@ public:
   virtual void close();
 
   virtual size_t available();
+  void setDeadline(DWORD milliseconds);
+  void clearDeadline(DWORD idleTimeout);
 
 protected:
   SocketIPv4 *m_socket;
 
   friend class SocketIPv4;
+
+private:
+  void applyDeadline(int socketOption);
+  ULONGLONG m_deadline;
 };
 
 #endif

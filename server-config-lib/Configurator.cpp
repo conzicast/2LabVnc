@@ -38,12 +38,12 @@
 
 namespace
 {
-  const TCHAR ENCRYPTION_CREDENTIALS_VALUE[] = _T("RoleEncryptionCredentials");
+  const TCHAR ENCRYPTION_CREDENTIALS_VALUE[] = _T("PinnedRoleCredentials");
   const TCHAR SHOW_ENCRYPTION_NOTICE_VALUE[] = _T("ShowEncryptionNotice");
-  const UINT32 ENCRYPTION_CREDENTIALS_VERSION = 2;
+  const UINT32 ENCRYPTION_CREDENTIALS_VERSION = 3;
   const size_t ENCRYPTION_CREDENTIALS_SIZE = 4 + 4 +
     SecureServerCredentials::SALT_SIZE +
-    2 * SecureServerCredentials::VERIFIER_SIZE;
+    2 * SecureServerCredentials::VERIFIER_SIZE + SecureServerCredentials::IDENTITY_PRIVATE_SIZE;
 
   void storeUInt32(UINT8 *destination, UINT32 value)
   {
@@ -74,6 +74,8 @@ namespace
     memcpy(plainData + 8 + SecureServerCredentials::SALT_SIZE +
            SecureServerCredentials::VERIFIER_SIZE,
            credentials.viewOnlyVerifier, SecureServerCredentials::VERIFIER_SIZE);
+    memcpy(plainData + ENCRYPTION_CREDENTIALS_SIZE - SecureServerCredentials::IDENTITY_PRIVATE_SIZE,
+           credentials.identityPrivate, SecureServerCredentials::IDENTITY_PRIVATE_SIZE);
 
     DATA_BLOB input = { static_cast<DWORD>(sizeof(plainData)), plainData };
     DATA_BLOB output = { 0, 0 };
@@ -121,6 +123,9 @@ namespace
              output.pbData + 8 + SecureServerCredentials::SALT_SIZE +
              SecureServerCredentials::VERIFIER_SIZE,
              SecureServerCredentials::VERIFIER_SIZE);
+      memcpy(credentials->identityPrivate,
+             output.pbData + ENCRYPTION_CREDENTIALS_SIZE - SecureServerCredentials::IDENTITY_PRIVATE_SIZE,
+             SecureServerCredentials::IDENTITY_PRIVATE_SIZE);
       valid = credentials->hasDistinctPasswords();
     }
     SecureZeroMemory(output.pbData, output.cbData);

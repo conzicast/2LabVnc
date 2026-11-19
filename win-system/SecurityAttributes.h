@@ -44,6 +44,7 @@ public:
 
   // Sets security attributes that allow all access to all.
   void shareToAllUsers();
+  void configureControlPipe();
 
   // If immediately before was called the setDefaultAttributes() function
   // returns zero otherwise returns pointer to SECURITY_ATTRIBUTES structure.

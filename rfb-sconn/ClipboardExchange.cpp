@@ -85,17 +85,23 @@ void ClipboardExchange::onRequestWorker(bool utf8flag, RfbInputGate *input)
 {
   size_t length = input->readUInt32();
 
-  if (length > SIZE_MAX - 1) {
-    throw Exception(_T("Integer overflow in clipboard allocation"));
+  if (length > 1024 * 1024) {
+    throw IOException(_T("Clipboard message exceeds 1 MiB"));
+  }
+  if (m_viewOnly) {
+    char discard[4096];
+    while (length != 0) {
+      size_t chunk = length < sizeof(discard) ? length : sizeof(discard);
+      input->readFully(discard, chunk);
+      length -= chunk;
+    }
+    return;
   }
 
   std::vector<char> charBuff(length + 1);
 
   input->readFully(&charBuff.front(), length);
   charBuff[length] = '\0';
-  if (m_viewOnly) {
-    return;
-  }
 
   StringStorage clipText;
   if (utf8flag) {

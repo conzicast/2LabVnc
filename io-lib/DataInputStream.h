@@ -70,7 +70,7 @@ public:
   INT32 readInt32() throw(IOException);
   INT64 readInt64() throw(IOException);
 
-  void readUTF8(StringStorage *storage) throw(IOException);
+  void readUTF8(StringStorage *storage, UINT32 maxLength = 1024 * 1024) throw(IOException);
 
 protected:
   InputStream *m_inputStream;

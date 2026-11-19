@@ -18,7 +18,8 @@ See sections 11 and 12 of the [GNU GPLv2 license](LICENSE).
 
 ## Features
 
-- Mandatory Tight RFB tunnel (`CNSG/AESGCM02`) with no plaintext fallback
+- Mandatory Tight RFB tunnel (`CNSG/AESGCM03`) with no plaintext fallback
+- Pinned SHA-256 server fingerprint checked before any password proof is sent
 - Two separate passwords for full control and view-only access, with one Viewer prompt
 - AES-256-GCM with separate keys and nonce sequences in each direction
 - Ephemeral ECDH P-256 key exchange and PBKDF2-HMAC-SHA-256 password derivation
@@ -44,13 +45,17 @@ still needs verification.
    control and one for view-only access. Allow incoming
    connections on the configured TCP port, which defaults to `5900`.
 4. Install **2LabVnc Viewer** on the computer you will use to connect.
-5. Connect to the Server and enter the password for the access level you need.
+5. Copy the Server fingerprint from **Fingerprint...** in Server settings.
+   Give Viewer users the fingerprint through a trusted channel.
+6. Connect to the Server and enter the fingerprint and the password for the
+   access level you need. The Viewer remembers the fingerprint for the host
+   and port on subsequent direct connections.
    The Viewer shows an **Encryption enabled** notice for two seconds after
    the first remote image arrives. The Server can hide the notice.
 
-When upgrading from 1.0.x, update both the Server and Viewer and configure
-the new password pair on the Server. The previous shared password is not
-used by the new protocol.
+When upgrading from a version before 1.2.0, update both the Server and Viewer.
+Set a fresh pair of role passwords, then obtain the fingerprint from the
+updated Server. Plan the upgrade with local access to the Server.
 
 See the [installation guide](docs/INSTALLATION.md) and
 [encryption guide](docs/ENCRYPTION.md) for setup, troubleshooting, and
