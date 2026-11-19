@@ -34,11 +34,43 @@
 
 namespace
 {
+  bool copyFingerprint(HWND owner, const StringStorage &fingerprint)
+  {
+    const SIZE_T size = (fingerprint.getLength() + 1) * sizeof(TCHAR);
+    HGLOBAL data = GlobalAlloc(GMEM_MOVEABLE, size);
+    if (data == NULL) {
+      return false;
+    }
+    void *buffer = GlobalLock(data);
+    if (buffer == NULL) {
+      GlobalFree(data);
+      return false;
+    }
+    CopyMemory(buffer, fingerprint.getString(), size);
+    GlobalUnlock(data);
+
+    bool copied = false;
+    if (OpenClipboard(owner)) {
+#ifdef UNICODE
+      const UINT format = CF_UNICODETEXT;
+#else
+      const UINT format = CF_TEXT;
+#endif
+      copied = EmptyClipboard() && SetClipboardData(format, data) != NULL;
+      CloseClipboard();
+    }
+    // Windows owns the buffer after SetClipboardData succeeds.
+    if (!copied) {
+      GlobalFree(data);
+    }
+    return copied;
+  }
+
   class ServerFingerprintDialog : public BaseDialog
   {
   public:
-    ServerFingerprintDialog(Control *parent, const StringStorage &fingerprint)
-      : BaseDialog(IDD_SERVER_FINGERPRINT), m_fingerprint(fingerprint)
+    ServerFingerprintDialog(Control *parent, const StringStorage &fingerprint, bool afterSetup)
+      : BaseDialog(IDD_SERVER_FINGERPRINT), m_fingerprint(fingerprint), m_afterSetup(afterSetup)
     {
       setParent(parent);
     }
@@ -46,15 +78,25 @@ namespace
   protected:
     BOOL onInitDialog()
     {
-      HWND field = GetDlgItem(m_ctrlThis.getWindow(), IDC_SERVER_FINGERPRINT_VALUE);
-      SetWindowText(field, m_fingerprint.getString());
-      SetFocus(field);
-      SendMessage(field, EM_SETSEL, 0, -1);
+      HWND window = m_ctrlThis.getWindow();
+      if (m_afterSetup) {
+        SetWindowText(window, _T("2LabVnc Setup - Server Fingerprint"));
+      }
+      SetDlgItemText(window, IDC_SERVER_FINGERPRINT_VALUE, m_fingerprint.getString());
+      SetFocus(GetDlgItem(window, IDC_COPY_SERVER_FINGERPRINT));
       return FALSE;
     }
 
-    BOOL onCommand(UINT controlId, UINT)
+    BOOL onCommand(UINT controlId, UINT notification)
     {
+      if (controlId == IDC_COPY_SERVER_FINGERPRINT && notification == BN_CLICKED) {
+        HWND window = m_ctrlThis.getWindow();
+        const bool copied = copyFingerprint(window, m_fingerprint);
+        SetDlgItemText(window, IDC_FINGERPRINT_COPY_STATUS,
+                       copied ? _T("Fingerprint copied to the clipboard.")
+                              : _T("Could not copy. Try again or select and copy the fingerprint."));
+        return TRUE;
+      }
       if (controlId == IDOK || controlId == IDCANCEL) {
         kill(controlId);
         return TRUE;
@@ -64,7 +106,15 @@ namespace
 
   private:
     StringStorage m_fingerprint;
+    bool m_afterSetup;
   };
+}
+
+void ServerConfigDialog::showFingerprint(Control *parent, const StringStorage &fingerprint,
+                                         bool afterSetup)
+{
+  ServerFingerprintDialog dialog(parent, fingerprint, afterSetup);
+  dialog.showModal();
 }
 
 ServerConfigDialog::ServerConfigDialog()
@@ -495,8 +545,7 @@ void ServerConfigDialog::showServerFingerprint()
                  _T("2LabVnc Server Identity"), MB_OK | MB_ICONINFORMATION);
       return;
     }
-    ServerFingerprintDialog dialog(&m_ctrlThis, fingerprint);
-    dialog.showModal();
+    showFingerprint(&m_ctrlThis, fingerprint);
   } catch (const Exception &error) {
     MessageBox(m_ctrlThis.getWindow(), error.getMessage(),
                _T("2LabVnc Server Identity"), MB_OK | MB_ICONERROR);

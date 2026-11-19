@@ -26,8 +26,9 @@ Download the MSI for your system architecture, x86 or x64, from
    the current dialog. Validation messages appear directly below the fields.
 6. If setup skips the prompt, open Server settings and select **Set...** under
    **Full control and view only**. Apply the settings and enable incoming connections.
-7. Open **Fingerprint...** in Server settings after applying the passwords.
-   Copy the fingerprint and share it through a trusted channel.
+7. At the end of interactive service setup, use **Copy fingerprint** to copy
+   the Server fingerprint. It is also available under **Fingerprint...** in
+   Server settings. Share it through a trusted channel.
 
 When the setup wizard registers the Server as a Windows service, it saves
 the passwords in **Service Mode**. To retrieve its fingerprint from the
@@ -61,9 +62,12 @@ start, stop, or remove the service.
 1. Select **2LabVnc Viewer** on the computer you will use to connect.
 2. Launch **2LabVnc Viewer** from the Start menu.
 3. Connect to the Server address and port.
-4. Enter the fingerprint obtained from your administrator and one password
-   for the access level you want. The Viewer remembers the fingerprint by
-   host and port for direct connections. Enter it manually for a reverse connection.
+4. On the first connection, compare the fingerprint displayed by the Viewer
+   with the one provided by your administrator. Select **I verified the fingerprint**
+   only if they match.
+5. Enter one password for the access level you want. After secure authentication,
+   the Viewer remembers the identity by host and port for direct connections.
+   Reverse connections require confirmation each time.
 
 ## Upgrade from a version before 1.2.0
 

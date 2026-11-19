@@ -140,6 +140,7 @@ void RemoteViewerCore::init()
   m_decoderStore.addDecoder(new RichCursorDecoder(&m_logWriter), -1);
   m_input = 0;
   m_output = 0;
+  m_secureAuthentication = 0;
 
   m_wasStarted = false;
   m_wasConnected = false;
@@ -177,29 +178,14 @@ RemoteViewerCore::~RemoteViewerCore()
     }
   } catch (...) {
   }
-  if (!m_encryptionPassword.empty()) {
-    SecureZeroMemory(&m_encryptionPassword.front(),
-                     m_encryptionPassword.size());
-  }
 }
 
-void RemoteViewerCore::setEncryptionPassword(const UINT8 *password,
-                                             size_t passwordLength,
-                                             const UINT8 *fingerprint)
+void RemoteViewerCore::setSecureAuthentication(SecureClientAuthentication *authentication)
 {
   if (wasStarted()) {
-    throw Exception(_T("Encryption password must be set before starting the viewer"));
+    throw Exception(_T("Authentication handler must be set before starting the viewer"));
   }
-  if (password == 0 || passwordLength == 0 || fingerprint == 0) {
-    throw Exception(_T("The encryption password and trusted server fingerprint are required"));
-  }
-  if (!m_encryptionPassword.empty()) {
-    SecureZeroMemory(&m_encryptionPassword.front(),
-                     m_encryptionPassword.size());
-  }
-  m_encryptionPassword.assign(password, password + passwordLength);
-  m_trustedServerFingerprint.assign(fingerprint,
-    fingerprint + SecureServerCredentials::FINGERPRINT_SIZE);
+  m_secureAuthentication = authentication;
 }
 
 void RemoteViewerCore::start(CoreEventsAdapter *adapter,
@@ -771,19 +757,14 @@ void RemoteViewerCore::initTunnelling()
       }
     }
     if (hasSecureTunnel) {
-      if (m_encryptionPassword.empty()) {
-        throw Exception(_T("Encryption password was not provided"));
+      if (m_secureAuthentication == 0) {
+        throw Exception(_T("Secure authentication handler was not provided"));
       }
       m_output->writeUInt32(TunnelDefs::AESGCM);
       m_output->flush();
       runSecureClientHandshake(m_input, m_output,
                                m_tcpConnection.getSecureChannel(),
-                               &m_encryptionPassword.front(),
-                               m_encryptionPassword.size(),
-                               &m_trustedServerFingerprint.front());
-      SecureZeroMemory(&m_encryptionPassword.front(),
-                       m_encryptionPassword.size());
-      m_encryptionPassword.clear();
+                               m_secureAuthentication);
     } else {
       // An RFB 3.8 authentication failure has the same leading value as a
       // single Tight tunnel capability. Recover the server's reason when the

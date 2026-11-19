@@ -473,20 +473,25 @@ namespace
     calculateHash(&input.front(), input.size(), digest);
   }
 
-  void verifyServerIdentity(const UINT8 *hello, const UINT8 *trustedFingerprint)
+  void checkServerIdentity(const UINT8 *hello, UINT8 fingerprint[SHA256_SIZE])
   {
     const UINT8 *publicKey = hello + SERVER_HELLO_PREFIX_SIZE;
-    UINT8 fingerprint[SHA256_SIZE];
     calculateHash(publicKey, IDENTITY_PUBLIC_SIZE, fingerprint);
-    if (!fixedTimeEquals(fingerprint, trustedFingerprint, sizeof(fingerprint))) {
-      throw IOException(_T("Server identity fingerprint does not match. Verify it with the administrator."));
-    }
     IdentityKey identity;
     identity.importKey(BCRYPT_ECCPUBLIC_BLOB, publicKey, IDENTITY_PUBLIC_SIZE);
     UINT8 digest[SHA256_SIZE];
     hashSignedHello(hello, digest);
     if (!identity.verify(digest, hello + SERVER_HELLO_SIGNED_SIZE)) {
       throw IOException(_T("Server identity signature is invalid"));
+    }
+  }
+
+  void verifyServerIdentity(const UINT8 *hello, const UINT8 *trustedFingerprint)
+  {
+    UINT8 fingerprint[SHA256_SIZE];
+    checkServerIdentity(hello, fingerprint);
+    if (!fixedTimeEquals(fingerprint, trustedFingerprint, sizeof(fingerprint))) {
+      throw IOException(_T("Server identity fingerprint does not match. Verify it with the administrator."));
     }
   }
 
@@ -698,6 +703,12 @@ void SecureServerCredentials::formatFingerprint(StringStorage *text) const
 {
   UINT8 fingerprint[FINGERPRINT_SIZE];
   getFingerprint(fingerprint);
+  formatFingerprint(fingerprint, text);
+}
+
+void SecureServerCredentials::formatFingerprint(const UINT8 fingerprint[FINGERPRINT_SIZE],
+                                                 StringStorage *text)
+{
   const TCHAR hex[] = _T("0123456789ABCDEF");
   TCHAR encoded[2 * FINGERPRINT_SIZE + 1] = {};
   for (size_t index = 0; index < FINGERPRINT_SIZE; ++index) {
@@ -1012,25 +1023,33 @@ bool runSecureServerHandshake(DataInputStream *input,
   return viewOnly;
 }
 
-void runSecureClientHandshake(DataInputStream *input,
+namespace {
+
+struct PromptedPassword
+{
+  std::vector<UINT8> bytes;
+  ~PromptedPassword()
+  {
+    if (!bytes.empty()) {
+      SecureZeroMemory(&bytes.front(), bytes.size());
+    }
+  }
+};
+
+void finishClientHandshake(DataInputStream *input,
                               DataOutputStream *output,
                               SecureChannel *channel,
+                              const std::vector<UINT8> &serverHello,
                               const UINT8 *password,
                               size_t passwordLength,
                               const UINT8 *fingerprint)
 {
-  if (input == 0 || output == 0 || channel == 0) {
-    throw IOException(_T("Secure client handshake has an invalid stream"));
-  }
-
   SecureClientHandshake handshake(password, passwordLength, fingerprint);
   SecureSessionKeys keys;
-  std::vector<UINT8> serverHello(SERVER_HELLO_SIZE);
   std::vector<UINT8> clientResponse;
   std::vector<UINT8> serverFinish(SERVER_FINISH_SIZE);
   std::vector<UINT8> clientActivation;
 
-  input->readFully(&serverHello.front(), serverHello.size());
   handshake.processServerHello(serverHello, &clientResponse);
   output->writeFully(&clientResponse.front(), clientResponse.size());
   output->flush();
@@ -1044,4 +1063,41 @@ void runSecureClientHandshake(DataInputStream *input,
                     keys.serverToClientKey,
                     keys.clientNoncePrefix,
                     keys.serverNoncePrefix);
+}
+
+}
+
+void runSecureClientHandshake(DataInputStream *input, DataOutputStream *output,
+                              SecureChannel *channel, const UINT8 *password,
+                              size_t passwordLength, const UINT8 *fingerprint)
+{
+  if (input == 0 || output == 0 || channel == 0) {
+    throw IOException(_T("Secure client handshake has an invalid stream"));
+  }
+  std::vector<UINT8> serverHello(SERVER_HELLO_SIZE);
+  input->readFully(&serverHello.front(), serverHello.size());
+  finishClientHandshake(input, output, channel, serverHello, password, passwordLength, fingerprint);
+}
+
+void runSecureClientHandshake(DataInputStream *input, DataOutputStream *output,
+                              SecureChannel *channel, SecureClientAuthentication *authentication)
+{
+  if (input == 0 || output == 0 || channel == 0 || authentication == 0) {
+    throw IOException(_T("Secure client handshake has no stream or authentication handler"));
+  }
+  std::vector<UINT8> serverHello(SERVER_HELLO_SIZE);
+  input->readFully(&serverHello.front(), serverHello.size());
+  if (memcmp(&serverHello.front(), SERVER_HELLO_MAGIC, sizeof(SERVER_HELLO_MAGIC)) != 0) {
+    throw IOException(_T("Invalid server handshake marker"));
+  }
+  UINT8 fingerprint[SecureServerCredentials::FINGERPRINT_SIZE];
+  checkServerIdentity(&serverHello.front(), fingerprint);
+  PromptedPassword password;
+  authentication->requestPassword(fingerprint, &password.bytes);
+  if (password.bytes.empty()) {
+    throw IOException(_T("Encryption password cannot be empty"));
+  }
+  finishClientHandshake(input, output, channel, serverHello,
+                        &password.bytes.front(), password.bytes.size(), fingerprint);
+  authentication->onAuthenticated(fingerprint);
 }

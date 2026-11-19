@@ -154,8 +154,7 @@ public:
   //
   virtual ~RemoteViewerCore();
 
-  void setEncryptionPassword(const UINT8 *password, size_t passwordLength,
-                             const UINT8 *fingerprint);
+  void setSecureAuthentication(class SecureClientAuthentication *authentication);
 
   //
   // Each overloaded start() function actually starts operation.
@@ -574,8 +573,7 @@ private:
   // See also: C++ standard 12.6.2 - Initializing bases and members.
   TcpConnection m_tcpConnection;
 
-  std::vector<UINT8> m_encryptionPassword;
-  std::vector<UINT8> m_trustedServerFingerprint;
+  class SecureClientAuthentication *m_secureAuthentication;
   bool m_suppressEncryptionNotice = false;
 
   RfbInputGate *m_input;

@@ -406,6 +406,70 @@ namespace
     require(rejected, "a modified activation proof must be rejected");
   }
 
+  class TestClientAuthentication : public SecureClientAuthentication
+  {
+  public:
+    TestClientAuthentication(const UINT8 *fingerprint, const char *password)
+      : requested(false), authenticated(false), m_password(password)
+    {
+      memcpy(m_fingerprint, fingerprint, sizeof(m_fingerprint));
+    }
+
+    void requestPassword(const UINT8 *fingerprint, std::vector<UINT8> *password)
+    {
+      requested = true;
+      if (memcmp(m_fingerprint, fingerprint, sizeof(m_fingerprint)) != 0 || m_password == 0) {
+        throw IOException(_T("Server fingerprint rejected by the test client"));
+      }
+      const UINT8 *bytes = reinterpret_cast<const UINT8 *>(m_password);
+      password->assign(bytes, bytes + strlen(m_password));
+    }
+
+    void onAuthenticated(const UINT8 *fingerprint)
+    {
+      require(requested && memcmp(m_fingerprint, fingerprint, sizeof(m_fingerprint)) == 0,
+              "the authenticated identity must match the identity shown before the password");
+      authenticated = true;
+    }
+
+    bool requested;
+    bool authenticated;
+  private:
+    const char *m_password;
+    UINT8 m_fingerprint[SecureServerCredentials::FINGERPRINT_SIZE];
+  };
+
+  void testFingerprintConfirmationRejectsBeforeProof(bool invalidSignature, bool changedKey)
+  {
+    const char password[] = "identity confirmation test password";
+    SecureServerCredentials credentials = makeTestCredentials(password);
+    SecureServerHandshake server(credentials);
+    UINT8 expected[SecureServerCredentials::FINGERPRINT_SIZE];
+    credentials.getFingerprint(expected);
+    if (changedKey) {
+      expected[0] ^= 1;
+    }
+    MemoryChannel transport(1024, 1024);
+    server.createHello(&transport.bytes());
+    if (invalidSignature) {
+      transport.bytes().back() ^= 1;
+    }
+    const size_t helloSize = transport.bytes().size();
+    SecureChannel channel(&transport);
+    DataInputStream input(&channel);
+    DataOutputStream output(&channel);
+    TestClientAuthentication auth(expected, changedKey ? password : 0);
+    bool rejected = false;
+    try {
+      runSecureClientHandshake(&input, &output, &channel, &auth);
+    } catch (const IOException &) {
+      rejected = true;
+    }
+    require(rejected && auth.requested == !invalidSignature && !auth.authenticated &&
+            transport.bytes().size() == helloSize,
+            "a rejected fingerprint or invalid signature must stop before the proof");
+  }
+
   void testSocketHandshakeAndEncryptedTraffic(bool viewOnly)
   {
     WSADATA socketData;
@@ -470,9 +534,8 @@ namespace
     const char *clientPassword = viewOnly ? VIEW_ONLY_PASSWORD : password;
     UINT8 fingerprint[SecureServerCredentials::FINGERPRINT_SIZE];
     credentials.getFingerprint(fingerprint);
-    runSecureClientHandshake(&clientInput, &clientOutput, &clientChannel,
-                             reinterpret_cast<const UINT8 *>(clientPassword),
-                             strlen(clientPassword), fingerprint);
+    TestClientAuthentication auth(fingerprint, clientPassword);
+    runSecureClientHandshake(&clientInput, &clientOutput, &clientChannel, &auth);
     clientOutput.writeFully(&request.front(), request.size());
     clientOutput.flush();
     std::vector<UINT8> receivedResponse(response.size());
@@ -480,6 +543,7 @@ namespace
     serverThread.join();
 
     require(serverSucceeded, "server socket handshake or traffic failed");
+    require(auth.authenticated, "the verified identity must be reported after authentication");
     require(actualViewOnly == viewOnly, "incorrect role after TCP authentication");
     require(receivedResponse == response,
             "client received corrupted encrypted socket data");
@@ -596,6 +660,9 @@ int main()
     testUnusablePasswordPairs();
     testServerIdentityRejected(false);
     testServerIdentityRejected(true);
+    testFingerprintConfirmationRejectsBeforeProof(true, false);
+    testFingerprintConfirmationRejectsBeforeProof(false, true);
+    testFingerprintConfirmationRejectsBeforeProof(false, false);
     testIncomingTextBounds();
     testControlConfigRedaction();
     testWrongPasswordRejected();

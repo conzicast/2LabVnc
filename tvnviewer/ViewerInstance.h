@@ -27,11 +27,12 @@
 
 #include "ViewerWindow.h"
 #include "network/socket/SocketIPv4.h"
+#include "network/SecureHandshake.h"
 
 #include "ViewerVncAuthHandler.h"
 
 
-class ViewerInstance
+class ViewerInstance : private SecureClientAuthentication
 {
 public:
   // creates the viewer instance by using host:port from condata
@@ -54,6 +55,12 @@ public:
 
   // wait while viewer is not terminated
   void waitViewer();
+
+private:
+  void requestPassword(const UINT8 *fingerprint, std::vector<UINT8> *password);
+  void onAuthenticated(const UINT8 *fingerprint);
+  StringStorage m_fingerprintSetting;
+  StringStorage m_serverEndpoint;
 
 protected:
   ConnectionData m_condata;

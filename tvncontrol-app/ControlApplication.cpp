@@ -457,24 +457,40 @@ int ControlApplication::checkServicePasswords(bool isRunAsRequested)
 
 void ControlApplication::checkServicePasswords()
 {
-  Configurator::getInstance()->setServiceFlag(true);
-  Configurator::getInstance()->load();
-  ServerConfig *config = Configurator::getInstance()->getServerConfig();
-
-  if (config->hasEncryptionCredentials()) {
+  Configurator *configurator = Configurator::getInstance();
+  configurator->setServiceFlag(true);
+  configurator->load();
+  ServerConfig *config = configurator->getServerConfig();
+  if (!config->hasEncryptionCredentials() && !configureServicePasswords(configurator)) {
     return;
   }
 
+  try {
+    StringStorage fingerprint;
+    config->getEncryptionFingerprint(&fingerprint);
+    if (fingerprint.isEmpty()) {
+      throw Exception(_T("The saved Server fingerprint is unavailable. Check the Server settings."));
+    }
+    ServerConfigDialog::showFingerprint(0, fingerprint, true);
+  } catch (const Exception &error) {
+    MessageBox(0, error.getMessage(), _T("2LabVnc Setup - Server Fingerprint"),
+               MB_OK | MB_ICONERROR);
+  }
+}
+
+bool ControlApplication::configureServicePasswords(Configurator *configurator)
+{
+  ServerConfig *config = configurator->getServerConfig();
   SecureServerCredentials credentials;
   try {
     if (ChangePasswordDialog::promptForConnectionPasswords(0, &credentials)) {
       config->setEncryptionCredentials(credentials);
       SecureZeroMemory(&credentials, sizeof(credentials));
-      if (!Configurator::getInstance()->save()) {
+      if (!configurator->save()) {
         throw Exception(_T("Could not save the connection passwords."));
       }
       reloadConfig();
-      return;
+      return true;
     }
   } catch (const Exception &error) {
     SecureZeroMemory(&credentials, sizeof(credentials));
@@ -483,12 +499,13 @@ void ControlApplication::checkServicePasswords()
   }
 
   config->acceptRfbConnections(false);
-  Configurator::getInstance()->save();
+  configurator->save();
   reloadConfig();
   MessageBox(0,
     _T("Incoming connections are disabled. Set both connection passwords ")
     _T("in 2LabVnc Server Settings, then enable incoming connections."),
     _T("2LabVnc Connection Passwords Required"), MB_OK | MB_ICONWARNING);
+  return false;
 }
 
 void ControlApplication::reloadConfig()

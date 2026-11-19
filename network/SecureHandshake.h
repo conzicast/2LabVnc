@@ -43,6 +43,7 @@ struct SecureServerCredentials
   bool hasDistinctPasswords() const;
   void getFingerprint(UINT8 fingerprint[FINGERPRINT_SIZE]) const;
   void formatFingerprint(StringStorage *text) const;
+  static void formatFingerprint(const UINT8 fingerprint[FINGERPRINT_SIZE], StringStorage *text);
   static bool parseFingerprint(const TCHAR *text, UINT8 fingerprint[FINGERPRINT_SIZE]);
   static const size_t MIN_PASSWORD_LENGTH = 16;
   static const size_t MAX_PASSWORD_LENGTH = 128;
@@ -117,6 +118,18 @@ bool runSecureServerHandshake(DataInputStream *input,
                               DataOutputStream *output,
                               SecureChannel *channel,
                               const SecureServerCredentials &credentials);
+
+class SecureClientAuthentication
+{
+public:
+  virtual ~SecureClientAuthentication() {}
+  // Called only after the Server proves possession of its identity key.
+  virtual void requestPassword(const UINT8 *fingerprint, std::vector<UINT8> *password) = 0;
+  virtual void onAuthenticated(const UINT8 *fingerprint) = 0;
+};
+
+void runSecureClientHandshake(DataInputStream *input, DataOutputStream *output,
+                              SecureChannel *channel, SecureClientAuthentication *authentication);
 
 void runSecureClientHandshake(DataInputStream *input,
                               DataOutputStream *output,

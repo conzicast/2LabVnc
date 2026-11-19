@@ -41,6 +41,8 @@ public:
   virtual ~ServerConfigDialog();
 
   void setParentDialog(BaseDialog *dialog);
+  static void showFingerprint(Control *parent, const StringStorage &fingerprint,
+                              bool afterSetup = false);
 
 public:
 

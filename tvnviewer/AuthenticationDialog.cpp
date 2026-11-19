@@ -23,29 +23,26 @@
 //
 
 #include "AuthenticationDialog.h"
-#include "IdentityResource.h"
-#include "network/SecureHandshake.h"
 
 AuthenticationDialog::AuthenticationDialog(bool encryptionMode)
 : BaseDialog(IDD_DAUTH), m_encryptionMode(encryptionMode)
 {
 }
 
+AuthenticationDialog::~AuthenticationDialog()
+{
+  SecureZeroMemory(const_cast<TCHAR *>(m_strPassword.getString()),
+                   m_strPassword.getLength() * sizeof(TCHAR));
+}
 
 BOOL AuthenticationDialog::onInitDialog() 
 {
   setControlById(m_hostname, IDC_EHOST);
   m_hostname.setText(m_strHost.getString());
   setControlById(m_password, IDC_EPASSW);
-  setControlById(m_fingerprint, IDC_SERVER_FINGERPRINT);
   if (m_encryptionMode) {
     m_ctrlThis.setText(_T("2LabVnc Password (Full Control or View Only)"));
     m_password.setTextLengthLimit(128);
-    m_fingerprint.setTextLengthLimit(64);
-    m_fingerprint.setText(m_strFingerprint.getString());
-  } else {
-    ShowWindow(m_fingerprint.getWindow(), SW_HIDE);
-    ShowWindow(GetDlgItem(m_ctrlThis.getWindow(), IDC_FINGERPRINT_HINT), SW_HIDE);
   }
   m_password.setFocus();
   return FALSE;
@@ -59,17 +56,6 @@ void AuthenticationDialog::setHostName(const StringStorage *hostname)
 BOOL AuthenticationDialog::onCommand(UINT controlID, UINT notificationID)
 {
   if (controlID == IDOK) {
-    if (m_encryptionMode) {
-      m_fingerprint.getText(&m_strFingerprint);
-      UINT8 fingerprint[SecureServerCredentials::FINGERPRINT_SIZE];
-      if (!SecureServerCredentials::parseFingerprint(m_strFingerprint.getString(), fingerprint)) {
-        MessageBox(m_ctrlThis.getWindow(),
-          _T("Enter the 64-character fingerprint from your server administrator."),
-          _T("2LabVnc Server Identity"), MB_OK | MB_ICONWARNING);
-        m_fingerprint.setFocus();
-        return TRUE;
-      }
-    }
     m_password.getText(&m_strPassword);
     kill(1);
     return TRUE;
@@ -84,14 +70,4 @@ BOOL AuthenticationDialog::onCommand(UINT controlID, UINT notificationID)
 const StringStorage *AuthenticationDialog::getPassword()
 {
   return &m_strPassword;
-}
-
-void AuthenticationDialog::setServerFingerprint(const StringStorage &fingerprint)
-{
-  m_strFingerprint = fingerprint;
-}
-
-const StringStorage &AuthenticationDialog::getServerFingerprint() const
-{
-  return m_strFingerprint;
 }

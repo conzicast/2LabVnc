@@ -139,9 +139,7 @@ protected:
    */
   int runConfigurator(bool configService, bool isRunAsRequested);
 
-  // Checks the rfb and administrator authentications. If one of them is empty
-  // the function runs a dialog to prompt to enable the both authentication and
-  // to set or to add passwords.
+  // Completes interactive service credential setup and shows the fingerprint.
   int checkServicePasswords(bool isRunAsRequested);
 
 private:
@@ -153,6 +151,7 @@ private:
 
   // Auxiliary function to the same name function. It does real work.
   void checkServicePasswords();
+  bool configureServicePasswords(Configurator *configurator);
 
   // Auxiliary function that forces the current run service to reload configuration.
   void reloadConfig();

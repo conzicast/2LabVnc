@@ -45,11 +45,13 @@ still needs verification.
    control and one for view-only access. Allow incoming
    connections on the configured TCP port, which defaults to `5900`.
 4. Install **2LabVnc Viewer** on the computer you will use to connect.
-5. Copy the Server fingerprint from **Fingerprint...** in Server settings.
+5. Copy the Server fingerprint at the end of service setup or from
+   **Fingerprint...** in Server settings.
    Give Viewer users the fingerprint through a trusted channel.
-6. Connect to the Server and enter the fingerprint and the password for the
-   access level you need. The Viewer remembers the fingerprint for the host
-   and port on subsequent direct connections.
+6. Connect to the Server, compare the fingerprint shown by the Viewer, and
+   confirm it before entering the password for the role you need. The Viewer
+   remembers the verified fingerprint for subsequent direct connections and
+   blocks changed fingerprints.
    The Viewer shows an **Encryption enabled** notice for two seconds after
    the first remote image arrives. The Server can hide the notice.
 

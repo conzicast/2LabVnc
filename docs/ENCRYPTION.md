@@ -34,9 +34,9 @@ connection. The header and GCM tag add 32 bytes per record.
    tunnel capability.
 2. The Server sends a signed hello with the salt, iteration count, random
    data, ephemeral ECDH key, and public identity key.
-3. The Viewer checks the identity key against its trusted fingerprint and
-   verifies the signature before deriving or sending a password proof.
-   It then derives the verifier and computes the ephemeral ECDH secret.
+3. The Viewer verifies the signature and checks the Server fingerprint against
+   its saved value or asks the operator to confirm it. Only then does it ask
+   for a password, derive the verifier, and compute the ephemeral ECDH secret.
 4. Both endpoints authenticate the transcript with HMAC. The Server checks the
    Viewer proof against both verifiers and assigns the role from the unique match.
 5. The handshake derives separate keys and nonce prefixes for the
@@ -68,10 +68,14 @@ The Server refuses sessions until a valid pair is configured.
 
 1. Launch **2LabVnc Viewer**.
 2. Enter the Server host and port.
-3. Enter the password for your role in the single **2LabVnc Password** prompt.
-   Paste the administrator-provided fingerprint on first use. If the identity
-   changes, confirm the change with the administrator before replacing the pin.
-4. When the first remote image arrives, the Viewer briefly displays
+3. Compare the first-use fingerprint displayed by the Viewer with the one
+   shown at Server setup or supplied through a trusted channel. If it matches,
+   select **I verified the fingerprint**.
+4. Enter the password for your role in the single **2LabVnc Password** prompt.
+   After secure authentication, the Viewer remembers the fingerprint for
+   the address and port of a direct connection. It blocks a changed identity
+   before asking for the password. Reverse connections require a fresh comparison.
+5. When the first remote image arrives, the Viewer briefly displays
    **Encryption enabled** with a green check mark. The notice lasts two seconds.
 
 **Show encryption notice in Viewer** is enabled by default in Server settings.
@@ -89,6 +93,10 @@ The Server stores the salt, iteration count, both PBKDF2 verifiers, and the
 private identity key in a Windows DPAPI blob protected at machine scope.
 Changing passwords preserves the existing identity. To rotate the identity,
 clear both passwords, apply, then set and apply a fresh pair.
+After verifying an intentional key change with the administrator, remove
+the corresponding `ServerFingerprint.<host>.<port>` value from
+`HKEY_CURRENT_USER\Software\2Lab\2LabVnc\Viewer\Settings` on the Viewer
+and verify the new fingerprint at the next connection.
 The Viewer keeps the password
 in memory for the current connection and clears it after channel activation.
 

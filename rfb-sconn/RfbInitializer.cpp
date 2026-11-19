@@ -42,6 +42,7 @@
 namespace
 {
   const DWORD HANDSHAKE_DEADLINE_MS = 15000;
+  const DWORD INTERACTIVE_AUTH_DEADLINE_MS = 120000;
 }
 
 RfbInitializer::RfbInitializer(SecureChannel *stream,
@@ -159,6 +160,8 @@ void RfbInitializer::doTightAuth()
   SecureServerCredentials credentials;
   serverConfig->getEncryptionCredentials(&credentials);
   try {
+    // Allow time to compare the fingerprint and enter a role password.
+    m_transport->setDeadline(INTERACTIVE_AUTH_DEADLINE_MS);
     m_viewOnlyAuth =
       runSecureServerHandshake(m_input, m_output, m_secureChannel, credentials);
   } catch (const SecurePasswordException &) {
