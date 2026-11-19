@@ -26,4 +26,5 @@
 
 const char *const TunnelDefs::SIG_NONE = "NOTUNNEL";
 const char *const TunnelDefs::VENDOR_AESGCM = "CNSG";
-const char *const TunnelDefs::SIG_AESGCM = "AESGCM01";
+const char *const TunnelDefs::SIG_AESGCM = "AESGCM02";
+const char *const TunnelDefs::SIG_SUPPRESS_ENCRYPTION_NOTICE = "NOENCUI1";

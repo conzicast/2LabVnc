@@ -417,7 +417,7 @@ namespace
                              UINT8 handshakeSecret[SHA256_SIZE])
   {
     std::vector<UINT8> input;
-    appendLabel(&input, "2LabVnc handshake v1");
+    appendLabel(&input, "2LabVnc handshake v2");
     appendBytes(&input, ecdhSecret, SHA256_SIZE);
     appendBytes(&input, transcriptHash, SHA256_SIZE);
     calculateHmac(verifier, SHA256_SIZE,
@@ -476,7 +476,8 @@ public:
     keyPair(0),
     helloCreated(false),
     completed(false),
-    activationVerified(false)
+    activationVerified(false),
+    viewOnly(true)
   {
     memset(handshakeSecret, 0, sizeof(handshakeSecret));
     memset(transcriptHash, 0, sizeof(transcriptHash));
@@ -498,6 +499,7 @@ public:
   bool helloCreated;
   bool completed;
   bool activationVerified;
+  bool viewOnly;
 };
 
 class SecureClientHandshakeImpl
@@ -541,6 +543,7 @@ SecureServerCredentials::SecureServerCredentials()
 {
   memset(salt, 0, sizeof(salt));
   memset(verifier, 0, sizeof(verifier));
+  memset(viewOnlyVerifier, 0, sizeof(viewOnlyVerifier));
 }
 
 SecureServerCredentials SecureServerCredentials::create(
@@ -549,12 +552,35 @@ SecureServerCredentials SecureServerCredentials::create(
   UINT32 iterationCount)
 {
   SecureServerCredentials credentials;
+  if (passwordLength < MIN_PASSWORD_LENGTH) {
+    throw IOException(_T("The full-control password must contain at least 16 characters"));
+  }
   randomBytes(credentials.salt, sizeof(credentials.salt));
   credentials.iterations = iterationCount;
   derivePasswordVerifier(password, passwordLength,
                          credentials.salt, credentials.iterations,
                          credentials.verifier);
   return credentials;
+}
+
+void SecureServerCredentials::setViewOnlyPassword(const UINT8 *password,
+                                                  size_t passwordLength)
+{
+  if (passwordLength < MIN_PASSWORD_LENGTH) {
+    throw IOException(_T("The view-only password must contain at least 16 characters"));
+  }
+  derivePasswordVerifier(password, passwordLength, salt, iterations,
+                         viewOnlyVerifier);
+}
+
+bool SecureServerCredentials::hasDistinctPasswords() const
+{
+  const UINT8 emptyVerifier[VERIFIER_SIZE] = {};
+  return iterations >= MIN_PBKDF2_ITERATIONS &&
+         iterations <= MAX_PBKDF2_ITERATIONS &&
+         !fixedTimeEquals(verifier, emptyVerifier, VERIFIER_SIZE) &&
+         !fixedTimeEquals(viewOnlyVerifier, emptyVerifier, VERIFIER_SIZE) &&
+         !fixedTimeEquals(verifier, viewOnlyVerifier, VERIFIER_SIZE);
 }
 
 SecureSessionKeys::SecureSessionKeys()
@@ -571,8 +597,7 @@ SecureServerHandshake::SecureServerHandshake(
   const SecureServerCredentials &credentials)
 : m_impl(new SecureServerHandshakeImpl(credentials))
 {
-  if (credentials.iterations < MIN_PBKDF2_ITERATIONS ||
-      credentials.iterations > MAX_PBKDF2_ITERATIONS) {
+  if (!credentials.hasDistinctPasswords()) {
     delete m_impl;
     m_impl = 0;
     throw IOException(_T("Stored encryption credentials are invalid"));
@@ -628,24 +653,39 @@ void SecureServerHandshake::processClientResponse(
   calculateTranscriptHash(m_impl->serverHello, responsePrefix,
                           m_impl->transcriptHash);
 
-  UINT8 ecdhSecret[SHA256_SIZE];
+  // Check both proofs before choosing a role. The client supplies no role flag.
+  SecureSessionKeys scratch;
+  UINT8 *ecdhSecret = scratch.clientToServerKey;
+  UINT8 *viewOnlySecret = scratch.serverToClientKey;
   m_impl->keyPair->derive(&clientResponse[36], ECDH_PUBLIC_BLOB_SIZE,
                           ecdhSecret);
   deriveHandshakeSecret(m_impl->credentials.verifier,
                         ecdhSecret,
                         m_impl->transcriptHash,
                         m_impl->handshakeSecret);
-  SecureZeroMemory(ecdhSecret, sizeof(ecdhSecret));
+  deriveHandshakeSecret(m_impl->credentials.viewOnlyVerifier,
+                        ecdhSecret,
+                        m_impl->transcriptHash,
+                        viewOnlySecret);
 
   UINT8 expectedProof[SHA256_SIZE];
   deriveProof(m_impl->handshakeSecret, "client proof",
               m_impl->transcriptHash, expectedProof);
-  bool proofValid = fixedTimeEquals(expectedProof,
+  bool fullControlValid = fixedTimeEquals(expectedProof,
                                     &clientResponse[CLIENT_RESPONSE_WITHOUT_PROOF_SIZE],
                                     sizeof(expectedProof));
+  deriveProof(viewOnlySecret, "client proof",
+              m_impl->transcriptHash, expectedProof);
+  bool viewOnlyValid = fixedTimeEquals(expectedProof,
+                                      &clientResponse[CLIENT_RESPONSE_WITHOUT_PROOF_SIZE],
+                                      sizeof(expectedProof));
   SecureZeroMemory(expectedProof, sizeof(expectedProof));
-  if (!proofValid) {
-    throw IOException(_T("Encryption password authentication failed"));
+  if (fullControlValid == viewOnlyValid) {
+    throw SecurePasswordException();
+  }
+  m_impl->viewOnly = viewOnlyValid;
+  if (viewOnlyValid) {
+    memcpy(m_impl->handshakeSecret, viewOnlySecret, SHA256_SIZE);
   }
 
   serverFinish->resize(SERVER_FINISH_SIZE);
@@ -750,7 +790,7 @@ void SecureClientHandshake::processServerFinish(
   m_impl->completed = true;
 }
 
-void SecureServerHandshake::processClientActivation(
+bool SecureServerHandshake::processClientActivation(
   const std::vector<UINT8> &clientActivation)
 {
   if (!m_impl->completed || m_impl->activationVerified ||
@@ -770,6 +810,7 @@ void SecureServerHandshake::processClientActivation(
     throw IOException(_T("Secure channel activation authentication failed"));
   }
   m_impl->activationVerified = true;
+  return m_impl->viewOnly;
 }
 
 void SecureClientHandshake::createClientActivation(
@@ -787,7 +828,7 @@ void SecureClientHandshake::createClientActivation(
   m_impl->activationCreated = true;
 }
 
-void runSecureServerHandshake(DataInputStream *input,
+bool runSecureServerHandshake(DataInputStream *input,
                               DataOutputStream *output,
                               SecureChannel *channel,
                               const SecureServerCredentials &credentials)
@@ -811,12 +852,13 @@ void runSecureServerHandshake(DataInputStream *input,
   output->writeFully(&serverFinish.front(), serverFinish.size());
   output->flush();
   input->readFully(&clientActivation.front(), clientActivation.size());
-  handshake.processClientActivation(clientActivation);
+  const bool viewOnly = handshake.processClientActivation(clientActivation);
 
   channel->activate(keys.serverToClientKey,
                     keys.clientToServerKey,
                     keys.serverNoncePrefix,
                     keys.clientNoncePrefix);
+  return viewOnly;
 }
 
 void runSecureClientHandshake(DataInputStream *input,

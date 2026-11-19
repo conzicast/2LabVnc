@@ -20,6 +20,12 @@
 
 class SecureChannel;
 
+class SecurePasswordException : public IOException
+{
+public:
+  SecurePasswordException() : IOException(_T("2LabVnc password authentication failed")) {}
+};
+
 struct SecureServerCredentials
 {
   static const size_t SALT_SIZE = 16;
@@ -30,9 +36,15 @@ struct SecureServerCredentials
   static SecureServerCredentials create(const UINT8 *password,
                                         size_t passwordLength,
                                         UINT32 iterations);
+  void setViewOnlyPassword(const UINT8 *password, size_t passwordLength);
+  bool hasDistinctPasswords() const;
+  static const size_t MIN_PASSWORD_LENGTH = 16;
+  static const size_t MAX_PASSWORD_LENGTH = 128;
+  static const UINT32 DEFAULT_ITERATIONS = 200000;
 
   UINT8 salt[SALT_SIZE];
   UINT8 verifier[VERIFIER_SIZE];
+  UINT8 viewOnlyVerifier[VERIFIER_SIZE];
   UINT32 iterations;
 };
 
@@ -62,7 +74,7 @@ public:
   void processClientResponse(const std::vector<UINT8> &clientResponse,
                              std::vector<UINT8> *serverFinish,
                              SecureSessionKeys *sessionKeys);
-  void processClientActivation(const std::vector<UINT8> &clientActivation);
+  bool processClientActivation(const std::vector<UINT8> &clientActivation);
 
 private:
   SecureServerHandshake(const SecureServerHandshake &);
@@ -92,7 +104,8 @@ private:
   SecureClientHandshakeImpl *m_impl;
 };
 
-void runSecureServerHandshake(DataInputStream *input,
+// Returns true only for an authenticated view-only session.
+bool runSecureServerHandshake(DataInputStream *input,
                               DataOutputStream *output,
                               SecureChannel *channel,
                               const SecureServerCredentials &credentials);

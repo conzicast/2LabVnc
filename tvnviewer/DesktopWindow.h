@@ -61,7 +61,7 @@ public:
   // it return size of server frame buffer and pixelsize.
   void getServerGeometry(Rect *rect, int *pixelsize);
 
-  void setConnected();
+  void setConnected(bool encrypted);
   void setViewerCore(RemoteViewerCore *viewerCore);
 
   // This function set state key "Ctrl", but not send data to server.
@@ -164,12 +164,16 @@ protected:
   bool m_isBackgroundDirty;
 
 private:
+  void showEncryptionNotice();
+  void drawEncryptionNotice(HDC dc);
   void doDraw(DeviceContext *dc);
   void scrollProcessing(int fbWidth, int fbHeight);
   void drawBackground(DeviceContext *dc, const RECT *rcMain, const RECT *rcImage);
   void drawImage(const RECT *src, const RECT *dst);
   void repaint(const Rect *repaintRect);
   void calcClientArea();
+  bool m_noticePendingFirstFrame;
+  bool m_noticeVisible;
 };
 
 #endif

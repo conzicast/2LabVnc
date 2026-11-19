@@ -20,9 +20,11 @@ Download the MSI for your system architecture, x86 or x64, from
    you want the Server to run as a service.
 4. Note the default RFB port, TCP `5900`. You can change the port in Server
    settings and adjust the firewall rule to match.
-5. Set the encryption password when prompted.
-6. Set the traditional VNC password or turn off `Require VNC authentication`.
-   See the [encryption guide](ENCRYPTION.md) for how this affects access.
+5. Set and confirm the full-control and view-only passwords when prompted.
+   The two passwords must differ and each must contain at least 16 characters.
+   The eye button shows or hides both fields in the current dialog.
+6. If setup skips the prompt, open Server settings and select **Set...** under
+   **Full control and view only**. Apply the settings and enable incoming connections.
 
 With the Windows Firewall option enabled, the installer creates one inbound
 TCP rule for the Server's RFB port. Viewer-only installs add no firewall rules.
@@ -43,7 +45,13 @@ start, stop, or remove the service.
 1. Select **2LabVnc Viewer** on the computer you will use to connect.
 2. Launch **2LabVnc Viewer** from the Start menu.
 3. Connect to the Server address and port.
-4. Enter the encryption password and, if prompted, the traditional VNC password.
+4. Enter one password for the access level you want.
+
+## Upgrade from 1.0.x
+
+Update the Server and Viewer together. Set the new password pair on the Server
+before connecting. The 1.0.x installers use an older, incompatible connection
+protocol. See the [encryption guide](ENCRYPTION.md) for details.
 
 ## Run alongside TightVNC
 

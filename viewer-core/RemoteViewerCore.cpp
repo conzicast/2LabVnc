@@ -646,6 +646,12 @@ void RemoteViewerCore::enableTightSecurityType(bool enabled)
   m_isTightEnabled = enabled;	
 }
 
+bool RemoteViewerCore::shouldShowEncryptionNotice() const
+{
+  const SecureChannel *channel = m_tcpConnection.getSecureChannel();
+  return channel != 0 && channel->isActive() && !m_suppressEncryptionNotice;
+}
+
 int RemoteViewerCore::negotiateSecurityType()
 {
   m_logWriter.detail(_T("Reading list of security types..."));
@@ -672,7 +678,11 @@ int RemoteViewerCore::negotiateSecurityType()
 
   // select type security
   m_logWriter.debug(_T("Selecting auth-handler"));
-  int typeSelected = selectSecurityType(&secTypes, &m_authHandlers, m_isTightEnabled);
+  if (m_minor < 7 || !m_isTightEnabled ||
+      std::find(secTypes.begin(), secTypes.end(), SecurityDefs::TIGHT) == secTypes.end()) {
+    throw AuthException(_T("This Viewer requires an encrypted 2LabVnc Server"));
+  }
+  int typeSelected = SecurityDefs::TIGHT;
   m_logWriter.info(_T("Security type is selected: %d"), typeSelected);
   if (typeSelected == SecurityDefs::TIGHT) {
     m_logWriter.info(_T("Tight capabilities is enable"));
@@ -682,7 +692,10 @@ int RemoteViewerCore::negotiateSecurityType()
     m_output->flush();
 
     initTunnelling();
-    return initAuthentication();
+    if (m_input->readUInt32() != 0) {
+      throw AuthException(_T("The server requested an incompatible second authentication step"));
+    }
+    return AuthDefs::NONE;
   }
 
   if (m_minor >= 7) {
@@ -731,36 +744,6 @@ StringStorage RemoteViewerCore::getAuthenticationTypeName(UINT32 authenticationT
     return _T("VNC");
   }
   return _T("Unknown type");
-}
-
-int RemoteViewerCore::selectSecurityType(const vector<UINT32> *secTypes,
-                                         const map<UINT32, AuthHandler *> *authHandlers,
-										 const bool isTightEnabled) const
-{
-  // Typedef const iterator.
-  typedef vector<UINT32>::const_iterator SecTypesIterator;
-
-  if (isTightEnabled) {
-    // If server supports security type "Tight", select it.
-    SecTypesIterator tightSecType = std::find(secTypes->begin(),
-                                              secTypes->end(),
-                                              SecurityDefs::TIGHT);
-    if (tightSecType != secTypes->end()) {
-      return *tightSecType;
-    }
-  }
-  // If server doesn't support security type "Tight", then search first type, which is supported.
-  for (SecTypesIterator i = secTypes->begin();
-       i != secTypes->end();
-       i++) {
-    if (authHandlers->find(*i) != authHandlers->end() ||
-        *i == SecurityDefs::NONE)
-      return *i;
-  }
-
-  throw Exception(_T("No security types supported. ")
-                  _T("Server sent security types, ")
-                  _T("but we do not support any of them."));
 }
 
 void RemoteViewerCore::initTunnelling()
@@ -826,53 +809,6 @@ void RemoteViewerCore::initTunnelling()
     throw Exception(_T("Server attempted an unencrypted TightVNC connection"));
   }
   m_logWriter.debug(_T("Tunneling is init"));
-}
-
-int RemoteViewerCore::initAuthentication()
-{
-  m_logWriter.detail(_T("Initialization of tight-authentication..."));
-  UINT32 authTypesNumber = m_input->readUInt32();
-
-  m_logWriter.info(_T("Number of auth-types is %d"), authTypesNumber);
-  if (authTypesNumber == 0) {
-    return AuthDefs::NONE;
-  }
-
-  CapsContainer newerViewerAuthCaps;
-  newerViewerAuthCaps.add(AuthDefs::SRP6DUAL, VendorDefs::TIGHTVNC,
-                          AuthDefs::SIG_SRP6DUAL);
-
-  m_logWriter.detail(_T("Reading authentication capability..."));
-  for (UINT32 i = 0; i < authTypesNumber; i++) {
-    RfbCapabilityInfo cap = readCapability();
-    m_authCaps.enable(&cap);
-    newerViewerAuthCaps.enable(&cap);
-  }
-  size_t numEnabled = m_authCaps.numEnabled();
-  vector<UINT32> authTypes(numEnabled);
-  for (size_t i = 0; i < numEnabled; ++i) {
-    authTypes[i] = m_authCaps.getByOrder(i);
-  }
-
-  m_logWriter.debug(_T("Authentication capability is read"));
-
-  m_logWriter.debug(_T("Select authentication capability"));
-  if (numEnabled == 0) {
-    if (newerViewerAuthCaps.isEnabled(AuthDefs::SRP6DUAL)) {
-      throw Exception(_T("This server requires TightVNC Viewer version 4 or later. ")
-                      _T("To use this Viewer, configure Legacy VNC authentication on the server."));
-    }
-    throw Exception(_T("The server does not offer a compatible authentication method. ")
-                    _T("Check the server's authentication settings."));
-  }
-  int typeSelected = authTypes[0];
-  m_logWriter.detail(_T("Selected type of authentication: %d"), typeSelected);
-
-  m_output->writeUInt32(typeSelected);
-  m_output->flush();
-
-  m_logWriter.debug(_T("Tight authentication is init"));
-  return typeSelected;
 }
 
 void RemoteViewerCore::setFbProperties(const Dimension *fbDimension,
@@ -1448,9 +1384,16 @@ void RemoteViewerCore::readCapabilities()
   m_input->readUInt16(); //padding
 
   m_logWriter.detail(_T("Server message types (capability):"));
+  m_suppressEncryptionNotice = false;
   while (nServerMessageTypes--) {
     RfbCapabilityInfo cap = readCapability();
-    m_serverMsgCaps.enable(&cap);
+    if (cap.code == TunnelDefs::SUPPRESS_ENCRYPTION_NOTICE &&
+        cap.isEqual(TunnelDefs::VENDOR_AESGCM,
+                    TunnelDefs::SIG_SUPPRESS_ENCRYPTION_NOTICE)) {
+      m_suppressEncryptionNotice = true;
+    } else {
+      m_serverMsgCaps.enable(&cap);
+    }
   }
 
   m_logWriter.detail(_T("Client message types (capability):"));

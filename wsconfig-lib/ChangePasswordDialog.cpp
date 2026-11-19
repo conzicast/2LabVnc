@@ -29,6 +29,25 @@
 
 #include "util/VncPassCrypt.h"
 #include "util/AnsiStringStorage.h"
+#include "util/Utf8StringStorage.h"
+
+namespace
+{
+  size_t countPasswordCharacters(const TCHAR *password)
+  {
+    size_t count = 0;
+    for (size_t index = 0; password[index] != 0; ++index) {
+      ++count;
+#ifdef _UNICODE
+      if (password[index] >= 0xd800 && password[index] <= 0xdbff &&
+          password[index + 1] >= 0xdc00 && password[index + 1] <= 0xdfff) {
+        ++index;
+      }
+#endif
+    }
+    return count;
+  }
+}
 
 ChangePasswordDialog::ChangePasswordDialog(Control *parent, bool isNewPassword,
                                            size_t maximumLength,
@@ -38,6 +57,7 @@ ChangePasswordDialog::ChangePasswordDialog(Control *parent, bool isNewPassword,
 : BaseDialog(IDD_CHANGE_PASSWORD), m_allowEmptyPassword(false),
   m_newPassword(isNewPassword), m_maximumLength(maximumLength),
   m_minimumLength(minimumLength), m_requireAnsi(requireAnsi),
+  m_passwordsVisible(false), m_passwordMask(0),
   m_caption(caption == 0 ? _T("") : caption)
 {
   setParent(parent);
@@ -61,6 +81,44 @@ ChangePasswordDialog::ChangePasswordDialog(Control *parent, bool isNewPassword,
 
 ChangePasswordDialog::~ChangePasswordDialog()
 {
+  SecureZeroMemory(const_cast<TCHAR *>(m_passwordText.getString()),
+                   m_passwordText.getLength() * sizeof(TCHAR));
+}
+
+bool ChangePasswordDialog::promptForConnectionPasswords(
+  Control *parent, SecureServerCredentials *credentials)
+{
+  const size_t maximum = SecureServerCredentials::MAX_PASSWORD_LENGTH;
+  const size_t minimum = SecureServerCredentials::MIN_PASSWORD_LENGTH;
+  const HWND owner = parent ? parent->getWindow() : NULL;
+  ChangePasswordDialog fullControl(parent, true, maximum, minimum, false,
+                                   _T("Set Full-Control Password"));
+  if (fullControl.showModal() != IDOK) {
+    return false;
+  }
+
+  Utf8StringStorage fullPassword(&fullControl.m_passwordText);
+  *credentials = SecureServerCredentials::create(
+    reinterpret_cast<const UINT8 *>(fullPassword.getString()),
+    fullPassword.getLength(), SecureServerCredentials::DEFAULT_ITERATIONS);
+
+  for (;;) {
+    ChangePasswordDialog viewOnly(parent, true, maximum, minimum, false,
+                                  _T("Set View-Only Password"));
+    if (viewOnly.showModal() != IDOK) {
+      SecureZeroMemory(credentials, sizeof(*credentials));
+      return false;
+    }
+    Utf8StringStorage viewPassword(&viewOnly.m_passwordText);
+    credentials->setViewOnlyPassword(
+      reinterpret_cast<const UINT8 *>(viewPassword.getString()),
+      viewPassword.getLength());
+    if (credentials->hasDistinctPasswords()) {
+      return true;
+    }
+    MessageBox(owner, _T("The full-control and view-only passwords must differ."),
+               _T("2LabVnc Connection Passwords"), MB_ICONSTOP | MB_OK);
+  }
 }
 
 const TCHAR *ChangePasswordDialog::getPasswordInPlainText() const
@@ -91,8 +149,66 @@ BOOL ChangePasswordDialog::onCommand(UINT cID, UINT nID)
     case IDCANCEL:
       onCancelButtonClick();
       break;
+    case IDC_TOGGLE_PASSWORD_VISIBILITY:
+      togglePasswordVisibility();
+      break;
     }
   }
+  return TRUE;
+}
+
+void ChangePasswordDialog::togglePasswordVisibility()
+{
+  m_passwordsVisible = !m_passwordsVisible;
+  const WPARAM mask = m_passwordsVisible ? 0 : m_passwordMask;
+  const HWND editControls[] = { m_password1.getWindow(), m_password2.getWindow() };
+  for (size_t index = 0; index < sizeof(editControls) / sizeof(editControls[0]); ++index) {
+    SendMessage(editControls[index], EM_SETPASSWORDCHAR, mask, 0);
+    InvalidateRect(editControls[index], NULL, TRUE);
+  }
+  HWND button = GetDlgItem(m_ctrlThis.getWindow(), IDC_TOGGLE_PASSWORD_VISIBILITY);
+  SetWindowText(button, m_passwordsVisible ? _T("Hide passwords") : _T("Show passwords"));
+  InvalidateRect(button, NULL, TRUE);
+}
+
+BOOL ChangePasswordDialog::onDrawItem(WPARAM controlID, LPDRAWITEMSTRUCT item)
+{
+  if (controlID != IDC_TOGGLE_PASSWORD_VISIBILITY) {
+    return BaseDialog::onDrawItem(controlID, item);
+  }
+
+  const int saved = SaveDC(item->hDC);
+  if (saved == 0) {
+    return FALSE;
+  }
+  RECT bounds = item->rcItem;
+  DrawFrameControl(item->hDC, &bounds, DFC_BUTTON,
+    DFCS_BUTTONPUSH | ((item->itemState & ODS_SELECTED) ? DFCS_PUSHED : 0));
+  SelectObject(item->hDC, GetStockObject(NULL_BRUSH));
+  SelectObject(item->hDC, GetStockObject(DC_PEN));
+  SetDCPenColor(item->hDC, GetSysColor(COLOR_BTNTEXT));
+  const int x = (bounds.left + bounds.right) / 2;
+  const int y = bounds.top + (bounds.bottom - bounds.top) / 3;
+  const int radius = (bounds.right - bounds.left) / 5;
+  const POINT eye[] = { {x - radius, y}, {x, y - radius / 2},
+    {x + radius, y}, {x, y + radius / 2} };
+  Polygon(item->hDC, eye, sizeof(eye) / sizeof(eye[0]));
+  Ellipse(item->hDC, x - 2, y - 2, x + 3, y + 3);
+  if (m_passwordsVisible) {
+    MoveToEx(item->hDC, x - radius, y - radius / 2, NULL);
+    LineTo(item->hDC, x + radius, y + radius / 2);
+  }
+  SetBkMode(item->hDC, TRANSPARENT);
+  SetTextColor(item->hDC, GetSysColor(COLOR_BTNTEXT));
+  RECT label = bounds;
+  label.top = y + radius / 2;
+  DrawText(item->hDC, m_passwordsVisible ? _T("Hide") : _T("Show"),
+           -1, &label, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+  if (item->itemState & ODS_FOCUS) {
+    InflateRect(&bounds, -3, -3);
+    DrawFocusRect(item->hDC, &bounds);
+  }
+  RestoreDC(item->hDC, saved);
   return TRUE;
 }
 
@@ -114,7 +230,7 @@ void ChangePasswordDialog::onOkButtonClick()
     return ;
   }
 
-  if (password1.getLength() < m_minimumLength) {
+  if (countPasswordCharacters(password1.getString()) < m_minimumLength) {
     m_password1.showBalloonTip(&m_passwordWeakTooltip);
     m_password1.setFocus();
     return;
@@ -141,6 +257,7 @@ void ChangePasswordDialog::initControls()
   HWND hwnd = m_ctrlThis.getWindow();
   m_password1.setWindow(GetDlgItem(hwnd, IDC_PASSWORD));
   m_password2.setWindow(GetDlgItem(hwnd, IDC_PASSWORD2));
+  m_passwordMask = SendMessage(m_password1.getWindow(), EM_GETPASSWORDCHAR, 0, 0);
 
   m_password1.setTextLengthLimit(m_maximumLength);
   m_password2.setTextLengthLimit(m_maximumLength);

@@ -228,15 +228,23 @@ namespace
     require(rejected, "out-of-sequence records must be rejected");
   }
 
-  void runHandshake(const char *serverPassword,
+  const char VIEW_ONLY_PASSWORD[] = "separate view-only test password";
+
+  SecureServerCredentials makeTestCredentials(const char *password)
+  {
+    SecureServerCredentials credentials = SecureServerCredentials::create(
+      reinterpret_cast<const UINT8 *>(password), strlen(password), 100000);
+    credentials.setViewOnlyPassword(
+      reinterpret_cast<const UINT8 *>(VIEW_ONLY_PASSWORD), strlen(VIEW_ONLY_PASSWORD));
+    return credentials;
+  }
+
+  bool runHandshake(const char *serverPassword,
                     const char *clientPassword,
                     SecureSessionKeys *serverKeys,
                     SecureSessionKeys *clientKeys)
   {
-    SecureServerCredentials credentials = SecureServerCredentials::create(
-      reinterpret_cast<const UINT8 *>(serverPassword),
-      strlen(serverPassword),
-      100000);
+    SecureServerCredentials credentials = makeTestCredentials(serverPassword);
     SecureServerHandshake server(credentials);
     SecureClientHandshake client(
       reinterpret_cast<const UINT8 *>(clientPassword),
@@ -251,17 +259,17 @@ namespace
     server.processClientResponse(clientResponse, &serverFinish, serverKeys);
     client.processServerFinish(serverFinish, clientKeys);
     client.createClientActivation(&clientActivation);
-    server.processClientActivation(clientActivation);
+    return server.processClientActivation(clientActivation);
   }
 
   void testAuthenticatedHandshake()
   {
     SecureSessionKeys serverKeys;
     SecureSessionKeys clientKeys;
-    runHandshake("correct horse battery staple 2026",
-                 "correct horse battery staple 2026",
-                 &serverKeys,
-                 &clientKeys);
+    require(!runHandshake("correct horse battery staple 2026",
+                          "correct horse battery staple 2026",
+                          &serverKeys, &clientKeys),
+            "the full-control password must grant full control");
 
     require(memcmp(serverKeys.clientToServerKey,
                    clientKeys.clientToServerKey,
@@ -301,13 +309,42 @@ namespace
     require(rejected, "an incorrect encryption password must be rejected");
   }
 
+  void testViewOnlyPassword()
+  {
+    SecureSessionKeys serverKeys;
+    SecureSessionKeys clientKeys;
+    require(runHandshake("correct horse battery staple 2026",
+                         VIEW_ONLY_PASSWORD, &serverKeys, &clientKeys),
+            "the view-only password must not grant full control");
+    require(memcmp(serverKeys.clientToServerKey, clientKeys.clientToServerKey,
+                   SecureSessionKeys::KEY_SIZE) == 0,
+            "the view-only session must negotiate matching encryption keys");
+  }
+
+  void testUnusablePasswordPairs()
+  {
+    SecureServerCredentials credentials = SecureServerCredentials::create(
+      reinterpret_cast<const UINT8 *>(VIEW_ONLY_PASSWORD),
+      strlen(VIEW_ONLY_PASSWORD), 100000);
+    require(!credentials.hasDistinctPasswords(), "one password cannot enable access");
+    credentials.setViewOnlyPassword(
+      reinterpret_cast<const UINT8 *>(VIEW_ONLY_PASSWORD), strlen(VIEW_ONLY_PASSWORD));
+    require(!credentials.hasDistinctPasswords(), "identical role passwords must fail");
+    const char shortPassword[] = "less than 16";
+    bool rejected = false;
+    try {
+      credentials.setViewOnlyPassword(
+        reinterpret_cast<const UINT8 *>(shortPassword), strlen(shortPassword));
+    } catch (const IOException &) {
+      rejected = true;
+    }
+    require(rejected, "a short password must be rejected");
+  }
+
   void testServerProofTamperDetection()
   {
     const char password[] = "long dedicated encryption password";
-    SecureServerCredentials credentials = SecureServerCredentials::create(
-      reinterpret_cast<const UINT8 *>(password),
-      strlen(password),
-      100000);
+    SecureServerCredentials credentials = makeTestCredentials(password);
     SecureServerHandshake server(credentials);
     SecureClientHandshake client(reinterpret_cast<const UINT8 *>(password),
                                  strlen(password));
@@ -334,8 +371,7 @@ namespace
   void testActivationProofTamperDetection()
   {
     const char password[] = "long dedicated encryption password";
-    SecureServerCredentials credentials = SecureServerCredentials::create(
-      reinterpret_cast<const UINT8 *>(password), strlen(password), 100000);
+    SecureServerCredentials credentials = makeTestCredentials(password);
     SecureServerHandshake server(credentials);
     SecureClientHandshake client(reinterpret_cast<const UINT8 *>(password),
                                  strlen(password));
@@ -362,7 +398,7 @@ namespace
     require(rejected, "a modified activation proof must be rejected");
   }
 
-  void testSocketHandshakeAndEncryptedTraffic()
+  void testSocketHandshakeAndEncryptedTraffic(bool viewOnly)
   {
     WSADATA socketData;
     require(WSAStartup(MAKEWORD(2, 2), &socketData) == 0,
@@ -393,8 +429,7 @@ namespace
     require(serverSocket != INVALID_SOCKET, "server accept failed");
 
     const char password[] = "socket integration encryption password";
-    SecureServerCredentials credentials = SecureServerCredentials::create(
-      reinterpret_cast<const UINT8 *>(password), strlen(password), 100000);
+    SecureServerCredentials credentials = makeTestCredentials(password);
     SocketTestChannel serverTransport(serverSocket);
     SocketTestChannel clientTransport(clientSocket);
     SecureChannel serverChannel(&serverTransport);
@@ -406,11 +441,12 @@ namespace
     std::vector<UINT8> request = makePayload(180000);
     std::vector<UINT8> response = makePayload(90000);
     bool serverSucceeded = false;
+    bool actualViewOnly = false;
 
     std::thread serverThread([&]() {
       try {
-        runSecureServerHandshake(&serverInput, &serverOutput,
-                                 &serverChannel, credentials);
+        actualViewOnly = runSecureServerHandshake(&serverInput, &serverOutput,
+                                                  &serverChannel, credentials);
         std::vector<UINT8> received(request.size());
         serverInput.readFully(&received.front(), received.size());
         require(received == request,
@@ -423,9 +459,10 @@ namespace
       }
     });
 
+    const char *clientPassword = viewOnly ? VIEW_ONLY_PASSWORD : password;
     runSecureClientHandshake(&clientInput, &clientOutput, &clientChannel,
-                             reinterpret_cast<const UINT8 *>(password),
-                             strlen(password));
+                             reinterpret_cast<const UINT8 *>(clientPassword),
+                             strlen(clientPassword));
     clientOutput.writeFully(&request.front(), request.size());
     clientOutput.flush();
     std::vector<UINT8> receivedResponse(response.size());
@@ -433,6 +470,7 @@ namespace
     serverThread.join();
 
     require(serverSucceeded, "server socket handshake or traffic failed");
+    require(actualViewOnly == viewOnly, "incorrect role after TCP authentication");
     require(receivedResponse == response,
             "client received corrupted encrypted socket data");
     closesocket(serverSocket);
@@ -476,10 +514,13 @@ int main()
   testTamperDetection();
   testSequenceDetection();
   testAuthenticatedHandshake();
+  testViewOnlyPassword();
+  testUnusablePasswordPairs();
   testWrongPasswordRejected();
   testServerProofTamperDetection();
   testActivationProofTamperDetection();
-  testSocketHandshakeAndEncryptedTraffic();
+  testSocketHandshakeAndEncryptedTraffic(false);
+  testSocketHandshakeAndEncryptedTraffic(true);
   benchmarkEncryptedChannel();
   std::cout << "SecureChannel tests passed" << std::endl;
   return 0;

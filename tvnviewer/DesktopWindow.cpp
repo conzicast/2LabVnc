@@ -23,9 +23,18 @@
 //
 
 #include "DesktopWindow.h"
+#include <algorithm>
+
+namespace
+{
+  const UINT SHOW_ENCRYPTION_NOTICE = WM_APP + 1;
+  const UINT_PTR ENCRYPTION_NOTICE_TIMER = 1;
+  const UINT ENCRYPTION_NOTICE_DURATION_MS = 2000;
+}
 
 DesktopWindow::DesktopWindow(LogWriter *logWriter, ConnectionConfig *conConf)
 : m_logWriter(logWriter),
+  m_isConnected(false),
   m_clipboard(0),
   m_showVert(false),
   m_showHorz(false),
@@ -39,7 +48,9 @@ DesktopWindow::DesktopWindow(LogWriter *logWriter, ConnectionConfig *conConf)
   m_altDown(false),
   m_previousMousePos(-1, -1),
   m_previousMouseState(0),
-  m_isBackgroundDirty(false)
+  m_isBackgroundDirty(false),
+  m_noticePendingFirstFrame(false),
+  m_noticeVisible(false)
 {
   m_rfbKeySym = std::auto_ptr<RfbKeySym>(new RfbKeySym(this, m_logWriter));
 }
@@ -48,9 +59,10 @@ DesktopWindow::~DesktopWindow()
 {
 }
 
-void DesktopWindow::setConnected()
+void DesktopWindow::setConnected(bool encrypted)
 {
   m_isConnected = true;
+  m_noticePendingFirstFrame = encrypted;
 }
 
 void DesktopWindow::setViewerCore(RemoteViewerCore *viewerCore)
@@ -79,12 +91,26 @@ void DesktopWindow::onPaint(DeviceContext *dc, PAINTSTRUCT *paintStruct)
     } catch (const Exception &ex) {
       m_logWriter->error(_T("Error in onPaint: %s"), ex.getMessage());
     }
+    if (m_noticeVisible) {
+      drawEncryptionNotice(paintStruct->hdc);
+    }
   }
 }
 
 bool DesktopWindow::onMessage(UINT message, WPARAM wParam, LPARAM lParam)
 {
   switch (message) {
+    case SHOW_ENCRYPTION_NOTICE:
+      showEncryptionNotice();
+      return true;
+    case WM_TIMER:
+      if (wParam == ENCRYPTION_NOTICE_TIMER) {
+        KillTimer(getHWnd(), ENCRYPTION_NOTICE_TIMER);
+        m_noticeVisible = false;
+        InvalidateRect(getHWnd(), NULL, FALSE);
+        return true;
+      }
+      break;
     case WM_HSCROLL:
       return onHScroll(wParam, lParam);
     case WM_VSCROLL:
@@ -500,6 +526,7 @@ bool DesktopWindow::onSize(WPARAM wParam, LPARAM lParam)
 
 bool DesktopWindow::onDestroy()
 {
+  KillTimer(getHWnd(), ENCRYPTION_NOTICE_TIMER);
   return true;
 }
 
@@ -519,8 +546,64 @@ void DesktopWindow::updateFramebuffer(const FrameBuffer *framebuffer,
     m_logWriter->error(_T("Possible invalide region. (%d, %d), (%d, %d)"),
                        dstRect->left, dstRect->top, dstRect->right, dstRect->bottom);
     m_logWriter->interror(_T("Error in updateFramebuffer (ViewerWindow)"));
+  } else if (m_noticePendingFirstFrame) {
+    // Start the notice on the UI thread after the first remote image arrives.
+    m_noticePendingFirstFrame = !PostMessage(getHWnd(), SHOW_ENCRYPTION_NOTICE, 0, 0);
   }
   repaint(dstRect);
+}
+
+void DesktopWindow::showEncryptionNotice()
+{
+  m_noticeVisible = SetTimer(getHWnd(), ENCRYPTION_NOTICE_TIMER,
+                             ENCRYPTION_NOTICE_DURATION_MS, NULL) != 0;
+  if (m_noticeVisible) {
+    InvalidateRect(getHWnd(), NULL, FALSE);
+  }
+}
+
+void DesktopWindow::drawEncryptionNotice(HDC dc)
+{
+  RECT client;
+  GetClientRect(getHWnd(), &client);
+  const int dpi = GetDeviceCaps(dc, LOGPIXELSX);
+  const int width = (std::min)(static_cast<int>(client.right), MulDiv(226, dpi, 96));
+  const int height = (std::min)(static_cast<int>(client.bottom), MulDiv(40, dpi, 96));
+  if (width <= 0 || height <= 0) {
+    return;
+  }
+  const int left = (client.right - width) / 2;
+  const int top = (std::min)(static_cast<int>(client.bottom) - height, MulDiv(16, dpi, 96));
+  const RECT banner = { left, top, left + width, top + height };
+  const int saved = SaveDC(dc);
+  if (saved == 0) {
+    return;
+  }
+
+  HBRUSH background = CreateSolidBrush(RGB(23, 30, 39));
+  if (background != NULL) {
+    FillRect(dc, &banner, background);
+    DeleteObject(background);
+  }
+  const int iconX = left + MulDiv(17, dpi, 96);
+  const int iconY = top + height / 2;
+  const int checkUnit = MulDiv(4, dpi, 96);
+  HPEN checkPen = CreatePen(PS_SOLID, (std::max)(2, MulDiv(3, dpi, 96)), RGB(83, 232, 141));
+  if (checkPen != NULL) {
+    HGDIOBJ oldPen = SelectObject(dc, checkPen);
+    MoveToEx(dc, iconX, iconY, NULL);
+    LineTo(dc, iconX + checkUnit, iconY + checkUnit);
+    LineTo(dc, iconX + 3 * checkUnit, iconY - checkUnit);
+    SelectObject(dc, oldPen);
+    DeleteObject(checkPen);
+  }
+  SelectObject(dc, GetStockObject(DEFAULT_GUI_FONT));
+  SetBkMode(dc, TRANSPARENT);
+  SetTextColor(dc, RGB(255, 255, 255));
+  RECT label = { left + MulDiv(40, dpi, 96), top, banner.right - 4, banner.bottom };
+  DrawText(dc, _T("Encryption enabled"), -1, &label,
+           DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS | DT_NOPREFIX);
+  RestoreDC(dc, saved);
 }
 
 void DesktopWindow::setNewFramebuffer(const FrameBuffer *framebuffer)

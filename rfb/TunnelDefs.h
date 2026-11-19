@@ -32,9 +32,12 @@ class TunnelDefs
 public:
   static const UINT32 NOTUNNEL = 0;
   static const UINT32 AESGCM = 0x434E5347;
+  // Encrypted ServerInit preference, not a selectable tunnel type.
+  static const UINT32 SUPPRESS_ENCRYPTION_NOTICE = 0x434E5348;
   static const char *const SIG_NONE;
   static const char *const VENDOR_AESGCM;
   static const char *const SIG_AESGCM;
+  static const char *const SIG_SUPPRESS_ENCRYPTION_NOTICE;
 private:
 };
 

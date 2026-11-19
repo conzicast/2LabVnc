@@ -71,11 +71,6 @@ private:
 
   void onAcceptRfbConnectionsClick();
   void onAcceptHttpConnectionsClick();
-  void onAuthenticationClick();
-  void onPrimaryPasswordChange();
-  void onReadOnlyPasswordChange();
-  void onUnsetPrimaryPasswordClick();
-  void onUnsetReadOnlyPasswordClick();
   void onEncryptionPasswordChange();
   void onUnsetEncryptionPasswordClick();
   void updateEncryptionPasswordControls();
@@ -115,14 +110,10 @@ protected:
   CheckBox m_acceptRfbConnections;
   CheckBox m_acceptHttpConnections;
   CheckBox m_showTrayIcon;
+  CheckBox m_showEncryptionNotice;
   CheckBox m_connectToRdp;
-  Control m_primaryPassword;
-  Control m_readOnlyPassword;
-  Control m_unsetPrimaryPassword;
-  Control m_unsetReadOnlyPassword;
   Control m_encryptionPassword;
   Control m_unsetEncryptionPassword;
-  CheckBox m_useAuthentication;
   SpinControl m_rfbPortSpin;
   SpinControl m_httpPortSpin;
   SpinControl m_pollingIntervalSpin;
@@ -144,9 +135,6 @@ protected:
   // Error notifications
   BaseDialog *m_parentDialog;
 
-  // Primary password control.
-  PasswordControl *m_ppControl;
-  PasswordControl *m_vpControl;
   SecureServerCredentials m_pendingEncryptionCredentials;
   bool m_encryptionCredentialsChanged;
   bool m_encryptionCredentialsPresent;

@@ -32,7 +32,6 @@
 #include "CapContainer.h"
 #include "server-config-lib/Configurator.h"
 #include "AuthException.h"
-#include "util/VncPassCrypt.h"
 #include "win-system/Environment.h"
 #include "util/AnsiStringStorage.h"
 #include "tvnserver-app/NamingDefs.h"
@@ -48,7 +47,6 @@ RfbInitializer::RfbInitializer(SecureChannel *stream,
   m_extAuthListener(extAuthListener),
   m_client(client),
   m_secureChannel(stream),
-  m_authAllowed(authAllowed),
   m_viewOnlyAuth(false)
 {
   m_output = new DataOutputStream(stream);
@@ -134,7 +132,7 @@ void RfbInitializer::doTightAuth()
   ServerConfig *serverConfig =
     Configurator::getInstance()->getServerConfig();
   if (!serverConfig->hasEncryptionCredentials()) {
-    throw AuthException(_T("Encryption password is not configured on the server"));
+    throw AuthException(_T("Configure both 2LabVnc connection passwords on the server"));
   }
 
   CapContainer tunnelInfo;
@@ -153,106 +151,24 @@ void RfbInitializer::doTightAuth()
   SecureServerCredentials credentials;
   serverConfig->getEncryptionCredentials(&credentials);
   try {
-    runSecureServerHandshake(m_input, m_output, m_secureChannel, credentials);
+    m_viewOnlyAuth =
+      runSecureServerHandshake(m_input, m_output, m_secureChannel, credentials);
+  } catch (const SecurePasswordException &) {
+    SecureZeroMemory(&credentials, sizeof(credentials));
+    m_extAuthListener->onAuthFailed(m_client);
+    throw;
   } catch (...) {
     SecureZeroMemory(&credentials, sizeof(credentials));
     throw;
   }
   SecureZeroMemory(&credentials, sizeof(credentials));
 
-  // Negotiate authentication.
-  // FIXME: Recognize authentication types.
-  if (Configurator::getInstance()->getServerConfig()->isUsingAuthentication()
-      && m_authAllowed) {
-    CapContainer authInfo;
-    authInfo.addCap(AuthDefs::VNC, VendorDefs::STANDARD, AuthDefs::SIG_VNC);
-    m_output->writeUInt32(authInfo.getCapCount());
-    authInfo.sendCaps(m_output);
-    // Read the security type selected by the client.
-    UINT32 clientAuthValue = m_input->readUInt32();
-    if (!authInfo.includes(clientAuthValue)) {
-      throw Exception(_T(""));
-    }
-    doAuth(clientAuthValue);
-  } else {
-    m_output->writeUInt32(0);
-    doAuth(AuthDefs::NONE);
-  }
-}
-
-void RfbInitializer::doAuth(UINT32 authType)
-{
-  if (authType == AuthDefs::VNC) {
-    doVncAuth();
-  } else if (authType == AuthDefs::NONE) {
-    doAuthNone();
-  } else {
-    throw Exception(_T(""));
-  }
-  // Perform additional work via a listener.
+  // The tunnel already authenticated the client and assigned its role.
+  m_output->writeUInt32(0);
   m_extAuthListener->onCheckAccessControl(m_client);
-  // Send authentication result.
-  if (m_minorVerNum >= 8 || authType != AuthDefs::NONE) {
-    m_output->writeUInt32(0); // FIXME: Use a named constant instead of 0.
+  if (m_minorVerNum >= 8) {
+    m_output->writeUInt32(0); // Successful RFB security result.
   }
-}
-
-void RfbInitializer::doVncAuth()
-{
-  UINT8 challenge[16];
-  for (int i = 0; i < sizeof(challenge); i++) {
-    unsigned int random;
-    rand_s(&random);
-    challenge[i] = random & 0xff;
-  }
-
-  m_output->writeFully(challenge, sizeof(challenge));
-  UINT8 response[16];
-  m_input->readFully(response, sizeof(response));
-  // Checking for a ban after auth.
-  checkForBan();
-
-  // Comparing the challenge with the response.
-  ServerConfig *srvConf = Configurator::getInstance()->getServerConfig();
-  bool hasPrim = srvConf->hasPrimaryPassword();
-  bool hasRdly = srvConf->hasReadOnlyPassword();
-
-  if (!hasPrim && !hasRdly) {
-    throw AuthException(_T("Server is not configured properly"));
-  }
-
-  if (hasPrim) {
-    UINT8 crypPrimPass[8];
-    srvConf->getPrimaryPassword(crypPrimPass);
-    VncPassCrypt passCrypt;
-    passCrypt.updatePlain(crypPrimPass);
-    if (passCrypt.challengeAndResponseIsValid(challenge, response)) {
-      return;
-    }
-  }
-  if (hasRdly) {
-    UINT8 crypReadOnlyPass[8];
-    srvConf->getReadOnlyPassword(crypReadOnlyPass);
-    VncPassCrypt passCrypt;
-    passCrypt.updatePlain(crypReadOnlyPass);
-    if (passCrypt.challengeAndResponseIsValid(challenge, response)) {
-      m_viewOnlyAuth = true;
-      return;
-    }
-  }
-  // At this time we are sure that the client was typed an incorectly password.
-  m_extAuthListener->onAuthFailed(m_client);
-
-  StringStorage clientAddressStorage;
-  m_client->getPeerHost(&clientAddressStorage);
-  StringStorage errMess;
-  errMess.format(_T("Authentication failed from %s"), clientAddressStorage.getString());
-
-  throw AuthException(errMess.getString());
-}
-
-void RfbInitializer::doAuthNone()
-{
 }
 
 void RfbInitializer::initAuthenticate()

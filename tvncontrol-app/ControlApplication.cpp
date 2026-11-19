@@ -64,9 +64,7 @@
 #include "wsconfig-lib/ConfigDialog.h"
 #include "wsconfig-lib/ChangePasswordDialog.h"
 #include "util/AnsiStringStorage.h"
-#include "util/Utf8StringStorage.h"
 #include "tvnserver-app/NamingDefs.h"
-#include "SetPasswordsDialog.h"
 #include <algorithm>
 
 ControlApplication::ControlApplication(HINSTANCE hinst,
@@ -464,69 +462,34 @@ void ControlApplication::checkServicePasswords()
   Configurator::getInstance()->load();
   ServerConfig *config = Configurator::getInstance()->getServerConfig();
 
-  bool askToChangeRfbAuth = !config->isUsingAuthentication() || !config->hasPrimaryPassword();
-  bool askToChangeAdmAuth = false;
-  SetPasswordsDialog dialog(askToChangeRfbAuth, askToChangeAdmAuth);
-  if (dialog.showModal() == IDOK) {
-    UINT8 cryptedPass[8];
-    bool useRfbAuth = dialog.getUseRfbPass();
-    bool dontUseRfbAuth = dialog.getRfbPassForClear();
-    // Note: The state !useRfbAuth && !dontUseRfbAuth is valid and means "do not change
-    // the auth settings".
-    if (useRfbAuth) {
-      StringStorage pass;
-      dialog.getRfbPass(&pass);
-      getCryptedPassword(cryptedPass, pass.getString());
-      config->setPrimaryPassword(cryptedPass);
-      config->useAuthentication(true);
-    } else if (dontUseRfbAuth) {
-      config->deletePrimaryPassword();
-      config->deleteReadOnlyPassword();
-      config->useAuthentication(false);
-    }
-    bool useAdmAuth = dialog.getUseAdmPass();
-    bool dontUseAdmAuth = dialog.getAdmPassForClear();
-    if (useAdmAuth) {
-      StringStorage pass;
-      dialog.getAdmPass(&pass);
-      getCryptedPassword(cryptedPass, pass.getString());
-      config->setControlPassword(cryptedPass);
-      config->useControlAuth(true);
-    } else if (dontUseAdmAuth) {
-      config->deleteControlPassword();
-      config->useControlAuth(false);
-    }
-    Configurator::getInstance()->save();
-    reloadConfig();
+  if (config->hasEncryptionCredentials()) {
+    return;
   }
 
-  if (!config->hasEncryptionCredentials()) {
-    ChangePasswordDialog encryptionDialog(
-      0, true, 128, 16, false,
-      _T("Set 2LabVnc Encryption Password"));
-    if (encryptionDialog.showModal() == IDOK) {
-      StringStorage password(encryptionDialog.getPasswordInPlainText());
-      Utf8StringStorage utf8Password(&password);
-      SecureServerCredentials credentials = SecureServerCredentials::create(
-        reinterpret_cast<const UINT8 *>(utf8Password.getString()),
-        utf8Password.getLength(), 200000);
+  SecureServerCredentials credentials;
+  try {
+    if (ChangePasswordDialog::promptForConnectionPasswords(0, &credentials)) {
       config->setEncryptionCredentials(credentials);
       SecureZeroMemory(&credentials, sizeof(credentials));
-      Configurator::getInstance()->save();
+      if (!Configurator::getInstance()->save()) {
+        throw Exception(_T("Could not save the connection passwords."));
+      }
       reloadConfig();
-    } else {
-      // Do not leave a newly installed server apparently reachable while it
-      // cannot complete the mandatory encrypted handshake.
-      config->acceptRfbConnections(false);
-      Configurator::getInstance()->save();
-      reloadConfig();
-      MessageBox(0,
-        _T("Incoming VNC connections have been disabled. Open 2LabVnc "
-           "Server Settings and set an encryption password to enable them."),
-        _T("2LabVnc Encryption Password Required"),
-        MB_OK | MB_ICONWARNING);
+      return;
     }
+  } catch (const Exception &error) {
+    SecureZeroMemory(&credentials, sizeof(credentials));
+    MessageBox(0, error.getMessage(), _T("2LabVnc Connection Passwords"),
+               MB_OK | MB_ICONERROR);
   }
+
+  config->acceptRfbConnections(false);
+  Configurator::getInstance()->save();
+  reloadConfig();
+  MessageBox(0,
+    _T("Incoming connections are disabled. Set both connection passwords ")
+    _T("in 2LabVnc Server Settings, then enable incoming connections."),
+    _T("2LabVnc Connection Passwords Required"), MB_OK | MB_ICONWARNING);
 }
 
 void ControlApplication::reloadConfig()

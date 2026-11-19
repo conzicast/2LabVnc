@@ -285,6 +285,8 @@ public:
   bool getGrabTransparentWindowsFlag();
 
   bool getShowTrayIconFlag();
+  bool shouldShowEncryptionNotice();
+  void setShowEncryptionNotice(bool enabled);
   void setShowTrayIconFlag(bool val);
 
   bool getConnectToRdpFlag();
@@ -437,6 +439,7 @@ private:
   bool m_hasReadOnlyPassword;
   bool m_hasControlPassword;
   bool m_hasEncryptionCredentials;
+  bool m_showEncryptionNotice;
 
   //
   // Critical section

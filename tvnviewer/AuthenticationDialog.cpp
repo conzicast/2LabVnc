@@ -36,7 +36,7 @@ BOOL AuthenticationDialog::onInitDialog()
   m_hostname.setText(m_strHost.getString());
   setControlById(m_password, IDC_EPASSW);
   if (m_encryptionMode) {
-    m_ctrlThis.setText(_T("2LabVnc Encryption Password"));
+    m_ctrlThis.setText(_T("2LabVnc Password (Full Control or View Only)"));
     m_password.setTextLengthLimit(128);
   }
   m_password.setFocus();

@@ -38,11 +38,12 @@
 
 namespace
 {
-  const TCHAR ENCRYPTION_CREDENTIALS_VALUE[] = _T("EncryptionCredentials");
-  const UINT32 ENCRYPTION_CREDENTIALS_VERSION = 1;
+  const TCHAR ENCRYPTION_CREDENTIALS_VALUE[] = _T("RoleEncryptionCredentials");
+  const TCHAR SHOW_ENCRYPTION_NOTICE_VALUE[] = _T("ShowEncryptionNotice");
+  const UINT32 ENCRYPTION_CREDENTIALS_VERSION = 2;
   const size_t ENCRYPTION_CREDENTIALS_SIZE = 4 + 4 +
     SecureServerCredentials::SALT_SIZE +
-    SecureServerCredentials::VERIFIER_SIZE;
+    2 * SecureServerCredentials::VERIFIER_SIZE;
 
   void storeUInt32(UINT8 *destination, UINT32 value)
   {
@@ -70,6 +71,9 @@ namespace
            SecureServerCredentials::SALT_SIZE);
     memcpy(plainData + 8 + SecureServerCredentials::SALT_SIZE,
            credentials.verifier, SecureServerCredentials::VERIFIER_SIZE);
+    memcpy(plainData + 8 + SecureServerCredentials::SALT_SIZE +
+           SecureServerCredentials::VERIFIER_SIZE,
+           credentials.viewOnlyVerifier, SecureServerCredentials::VERIFIER_SIZE);
 
     DATA_BLOB input = { static_cast<DWORD>(sizeof(plainData)), plainData };
     DATA_BLOB output = { 0, 0 };
@@ -113,6 +117,11 @@ namespace
       memcpy(credentials->verifier,
              output.pbData + 8 + SecureServerCredentials::SALT_SIZE,
              SecureServerCredentials::VERIFIER_SIZE);
+      memcpy(credentials->viewOnlyVerifier,
+             output.pbData + 8 + SecureServerCredentials::SALT_SIZE +
+             SecureServerCredentials::VERIFIER_SIZE,
+             SecureServerCredentials::VERIFIER_SIZE);
+      valid = credentials->hasDistinctPasswords();
     }
     SecureZeroMemory(output.pbData, output.cbData);
     LocalFree(output.pbData);
@@ -739,6 +748,9 @@ bool Configurator::saveServerConfig(SettingsManager *sm)
   if (!sm->setBoolean(_T("RunControlInterface"), m_serverConfig.getShowTrayIconFlag())) {
     saveResult = false;
   }
+  if (!sm->setBoolean(SHOW_ENCRYPTION_NOTICE_VALUE, m_serverConfig.shouldShowEncryptionNotice())) {
+    saveResult = false;
+  }
   if (!sm->setBoolean(_T("ConnectToRdp"), m_serverConfig.getConnectToRdpFlag())) {
     saveResult = false;
   }
@@ -952,6 +964,13 @@ bool Configurator::loadServerConfig(SettingsManager *sm, ServerConfig *config)
   } else {
     m_isConfigLoadedPartly = true;
     m_serverConfig.setShowTrayIconFlag(boolVal);
+  }
+  bool showEncryptionNotice = true;
+  if (sm->getBoolean(SHOW_ENCRYPTION_NOTICE_VALUE, &showEncryptionNotice)) {
+    m_isConfigLoadedPartly = true;
+    m_serverConfig.setShowEncryptionNotice(showEncryptionNotice);
+  } else {
+    m_serverConfig.setShowEncryptionNotice(true);
   }
   
     if (!sm->getBoolean(_T("ConnectToRdp"), &boolVal)) {

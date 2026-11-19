@@ -18,7 +18,8 @@ See sections 11 and 12 of the [GNU GPLv2 license](LICENSE).
 
 ## Features
 
-- Mandatory Tight RFB tunnel (`CNSG/AESGCM01`) with no plaintext fallback
+- Mandatory Tight RFB tunnel (`CNSG/AESGCM02`) with no plaintext fallback
+- Two separate passwords for full control and view-only access, with one Viewer prompt
 - AES-256-GCM with separate keys and nonce sequences in each direction
 - Ephemeral ECDH P-256 key exchange and PBKDF2-HMAC-SHA-256 password derivation
 - Mutual handshake authentication and authenticated channel activation
@@ -32,24 +33,24 @@ See sections 11 and 12 of the [GNU GPLv2 license](LICENSE).
 - Administrator rights to install the Server, register the service, and add the firewall rule
 - 2LabVnc on both ends of the connection
 
-Windows 7 is the configured minimum. Release 1.0.0 has yet to be tested on a
-clean Windows 7 VM.
+Windows 7 is the configured minimum. Compatibility on a clean Windows 7 VM
+still needs verification.
 
 ## Quick start
 
-1. Download the MSI for your architecture from [GitHub Releases](https://github.com/conzicast/2LabVnc/releases).
+1. Download the x64 or x86 MSI from [the latest GitHub release](https://github.com/conzicast/2LabVnc/releases/latest).
 2. Install **2LabVnc Server** on the computer you want to control.
-3. Set a dedicated encryption password of 16 to 128 characters. Allow incoming
+3. Set two different passwords of at least 16 characters each, one for full
+   control and one for view-only access. Allow incoming
    connections on the configured TCP port, which defaults to `5900`.
 4. Install **2LabVnc Viewer** on the computer you will use to connect.
-5. Connect to the Server and enter the same encryption password. If
-   `Require VNC authentication` is enabled, enter the traditional VNC password
-   in the second prompt.
+5. Connect to the Server and enter the password for the access level you need.
+   The Viewer shows an **Encryption enabled** notice for two seconds after
+   the first remote image arrives. The Server can hide the notice.
 
-The encryption password and the traditional VNC password are separate
-credentials. Turning off `Require VNC authentication` leaves a single
-password prompt and removes the distinction between full-control and
-view-only access based on the traditional VNC password.
+When upgrading from 1.0.x, update both the Server and Viewer and configure
+the new password pair on the Server. The previous shared password is not
+used by the new protocol.
 
 See the [installation guide](docs/INSTALLATION.md) and
 [encryption guide](docs/ENCRYPTION.md) for setup, troubleshooting, and

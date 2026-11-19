@@ -47,6 +47,7 @@ ServerConfig::ServerConfig()
   m_videoRecognitionInterval(3000), m_grabTransparentWindows(true),
   m_saveLogToAllUsersPath(false), m_hasControlPassword(false),
   m_hasEncryptionCredentials(false),
+  m_showEncryptionNotice(true),
   m_showTrayIcon(true),
   m_connectToRdp(false),
   m_idleTimeout(0)
@@ -156,6 +157,9 @@ void ServerConfig::serialize(DataOutputStream *output)
                      SecureServerCredentials::SALT_SIZE);
   output->writeFully(m_encryptionCredentials.verifier,
                      SecureServerCredentials::VERIFIER_SIZE);
+  output->writeFully(m_encryptionCredentials.viewOnlyVerifier,
+                     SecureServerCredentials::VERIFIER_SIZE);
+  output->writeUInt8(m_showEncryptionNotice ? 1 : 0);
 }
 
 void ServerConfig::deserialize(DataInputStream *input)
@@ -238,6 +242,23 @@ void ServerConfig::deserialize(DataInputStream *input)
                    SecureServerCredentials::SALT_SIZE);
   input->readFully(m_encryptionCredentials.verifier,
                    SecureServerCredentials::VERIFIER_SIZE);
+  input->readFully(m_encryptionCredentials.viewOnlyVerifier,
+                   SecureServerCredentials::VERIFIER_SIZE);
+  m_hasEncryptionCredentials = m_hasEncryptionCredentials &&
+                              m_encryptionCredentials.hasDistinctPasswords();
+  m_showEncryptionNotice = input->readUInt8() != 0;
+}
+
+bool ServerConfig::shouldShowEncryptionNotice()
+{
+  AutoLock lock(this);
+  return m_showEncryptionNotice;
+}
+
+void ServerConfig::setShowEncryptionNotice(bool enabled)
+{
+  AutoLock lock(this);
+  m_showEncryptionNotice = enabled;
 }
 
 bool ServerConfig::hasEncryptionCredentials()
@@ -264,7 +285,7 @@ void ServerConfig::setEncryptionCredentials(
 {
   AutoLock l(this);
   m_encryptionCredentials = credentials;
-  m_hasEncryptionCredentials = true;
+  m_hasEncryptionCredentials = credentials.hasDistinctPasswords();
 }
 
 void ServerConfig::deleteEncryptionCredentials()

@@ -30,6 +30,8 @@
 #include "gui/BalloonTip.h"
 #include "util/StringStorage.h"
 
+struct SecureServerCredentials;
+
 class ChangePasswordDialog : public BaseDialog
 {
 public:
@@ -45,6 +47,9 @@ public:
                        const TCHAR *caption = 0);
   virtual ~ChangePasswordDialog();
 
+  static bool promptForConnectionPasswords(Control *parent,
+                                           SecureServerCredentials *credentials);
+
   /**
   Returns password (in plain text) specified by user.
   @return password string.
@@ -58,6 +63,7 @@ protected:
 
   virtual BOOL onInitDialog();
   virtual BOOL onCommand(UINT cID, UINT nID);
+  virtual BOOL onDrawItem(WPARAM controlID, LPDRAWITEMSTRUCT item);
   virtual BOOL onNotify(UINT controlID, LPARAM data) { return TRUE; }
   virtual BOOL onDestroy() { return TRUE; }
 
@@ -70,6 +76,7 @@ protected:
 
 private:
   void initControls();
+  void togglePasswordVisibility();
 
 protected:
   // Controls
@@ -88,6 +95,8 @@ protected:
   size_t m_maximumLength;
   size_t m_minimumLength;
   bool m_requireAnsi;
+  bool m_passwordsVisible;
+  WPARAM m_passwordMask;
   StringStorage m_caption;
 };
 

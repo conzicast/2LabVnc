@@ -26,6 +26,7 @@
 #include "thread/AutoLock.h"
 #include "RfbCodeRegistrator.h"
 #include "ft-server-lib/FileTransferRequestHandler.h"
+#include "rfb/TunnelDefs.h"
 #include "EchoExtensionRequestHandler.h"
 #include "network/socket/SocketStream.h"
 #include "network/SecureChannel.h"
@@ -223,6 +224,11 @@ void RfbClient::execute()
     RfbDispatcher dispatcher(&input, &m_connClosingEvent);
     m_log->debug(_T("Dispatcher has been created"));
     CapContainer srvToClCaps, clToSrvCaps, encCaps;
+    if (!config->shouldShowEncryptionNotice()) {
+      srvToClCaps.addCap(TunnelDefs::SUPPRESS_ENCRYPTION_NOTICE,
+                        TunnelDefs::VENDOR_AESGCM,
+                        TunnelDefs::SIG_SUPPRESS_ENCRYPTION_NOTICE);
+    }
     RfbCodeRegistrator codeRegtor(&dispatcher, &srvToClCaps, &clToSrvCaps,
                                   &encCaps);
     // Init modules
@@ -246,7 +252,7 @@ void RfbClient::execute()
     m_log->debug(_T("ClipboardExchange has been created"));
 
     // FileTransfers initialization
-    if (config->isFileTransfersEnabled() &&
+    if (!m_viewOnly && config->isFileTransfersEnabled() &&
         rfbInitializer.getTightEnabledFlag()) {
       fileTransfer = new FileTransferRequestHandler(&codeRegtor, &output, m_desktop, m_log, !m_viewOnly);
       m_log->debug(_T("File transfer has been created"));

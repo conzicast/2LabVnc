@@ -397,6 +397,7 @@ public:
   // the server claims that supports it.
   //
   void enableTightSecurityType(bool enabled);
+  bool shouldShowEncryptionNotice() const;
   
   //
   // Work with capabilities is documented in interface CapabilitiesManager.
@@ -523,11 +524,7 @@ private:
   void readSecurityTypeList(vector<UINT32> *secTypes);
   StringStorage getSecurityTypeName(UINT32 securityType) const;
   StringStorage getAuthenticationTypeName(UINT32 authenticationType) const;
-  int selectSecurityType(const vector<UINT32> *secTypes,
-                         const map<UINT32, AuthHandler *> *authHandlers,
-                         const bool isTightEnabled) const;
   void initTunnelling();
-  int initAuthentication();
   void readCapabilities();
   RfbCapabilityInfo readCapability();
   void sendEncodings();
@@ -577,6 +574,7 @@ private:
   TcpConnection m_tcpConnection;
 
   std::vector<UINT8> m_encryptionPassword;
+  bool m_suppressEncryptionNotice = false;
 
   RfbInputGate *m_input;
   RfbOutputGate *m_output;

@@ -70,10 +70,7 @@ protected:
                            const CapContainer *clToSrvCaps,
                            const CapContainer *encCaps);
 
-  void doAuth(UINT32 authType);
   void doTightAuth();
-  void doVncAuth();
-  void doAuthNone();
 
   // Calls the onCheckForBan() function by the external listener
   // @throw AuthException if current is banned.
@@ -92,7 +89,6 @@ protected:
   unsigned int m_minorVerNum;
   bool m_viewOnlyAuth;
   bool m_tightEnabled;
-  bool m_authAllowed;
 
   ClientAuthListener *m_extAuthListener;
   RfbClient *m_client;

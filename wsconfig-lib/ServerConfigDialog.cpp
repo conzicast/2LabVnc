@@ -30,7 +30,6 @@
 #include "util/StringParser.h"
 #include "CommonInputValidation.h"
 #include "UIDataAccess.h"
-#include "util/Utf8StringStorage.h"
 #include <limits.h>
 
 ServerConfigDialog::ServerConfigDialog()
@@ -42,6 +41,8 @@ ServerConfigDialog::ServerConfigDialog()
 
 ServerConfigDialog::~ServerConfigDialog()
 {
+  SecureZeroMemory(&m_pendingEncryptionCredentials,
+                   sizeof(m_pendingEncryptionCredentials));
 }
 
 void ServerConfigDialog::setParentDialog(BaseDialog *dialog)
@@ -79,21 +80,6 @@ BOOL ServerConfigDialog::onCommand(UINT controlID, UINT notificationID)
     case IDC_ACCEPT_HTTP_CONNECTIONS:
       onAcceptHttpConnectionsClick();
       break;
-    case IDC_USE_AUTHENTICATION:
-      onAuthenticationClick();
-      break;
-    case IDC_PRIMARY_PASSWORD:
-      onPrimaryPasswordChange();
-      break;
-    case IDC_VIEW_ONLY_PASSWORD:
-      onReadOnlyPasswordChange();
-      break;
-    case IDC_UNSET_PRIMARY_PASSWORD_BUTTON:
-      onUnsetPrimaryPasswordClick();
-      break;
-    case IDC_UNSET_READONLY_PASSWORD_BUTTON:
-      onUnsetReadOnlyPasswordClick();
-      break;
     case IDC_ENCRYPTION_PASSWORD:
       onEncryptionPasswordChange();
       break;
@@ -124,6 +110,9 @@ BOOL ServerConfigDialog::onCommand(UINT controlID, UINT notificationID)
       break;
     case IDC_SHOW_TVNCONTROL_ICON_CHECKBOX:
       onShowTrayIconCheckBoxClick();
+      break;
+    case IDC_SHOW_ENCRYPTION_NOTICE:
+      ((ConfigDialog *)m_parentDialog)->updateApplyButtonState();
       break;
     case IDC_CONNECT_RDP_SESSION:
       onConnectToRdpCheckBoxClick();
@@ -198,24 +187,10 @@ bool ServerConfigDialog::validateInput()
     return false;
   }
 
-  bool passwordSpecified = m_ppControl->getState() == PasswordControl::OldPassword || 
-                           m_ppControl->getState() == PasswordControl::NewPassword ||
-                           m_vpControl->getState() == PasswordControl::OldPassword ||
-                           m_vpControl->getState() == PasswordControl::NewPassword;
-
-  if (m_acceptRfbConnections.isChecked() &&
-      m_useAuthentication.isChecked() &&
-      !passwordSpecified) {
-    MessageBox(m_ctrlThis.getWindow(),
-               StringTable::getString(IDS_SET_PASSWORD_NOTIFICATION),
-               StringTable::getString(IDS_CAPTION_BAD_INPUT),
-               MB_ICONSTOP | MB_OK);
-    return false;
-  }
   if (m_acceptRfbConnections.isChecked() &&
       !m_encryptionCredentialsPresent) {
     MessageBox(m_ctrlThis.getWindow(),
-               _T("Set an encryption password (minimum 16 characters)."),
+               _T("Set two different connection passwords (at least 16 characters each)."),
                _T("2LabVnc encryption is required"),
                MB_ICONSTOP | MB_OK);
     return false;
@@ -236,14 +211,13 @@ void ServerConfigDialog::updateUI()
   m_acceptRfbConnections.check(m_config->isAcceptingRfbConnections());
   m_acceptHttpConnections.check(m_config->isAcceptingHttpConnections());
 
-  m_ppControl->setHadPassword(m_config->hasPrimaryPassword());
-  m_vpControl->setHadPassword(m_config->hasReadOnlyPassword());
   m_encryptionCredentialsPresent =
     m_config->hasEncryptionCredentials();
   m_encryptionCredentialsChanged = false;
+  SecureZeroMemory(&m_pendingEncryptionCredentials,
+                   sizeof(m_pendingEncryptionCredentials));
   updateEncryptionPasswordControls();
 
-  m_useAuthentication.check(m_config->isUsingAuthentication());
 
   m_blockLocalInput.check(m_config->isBlockingLocalInput());
   m_blockRemoteInput.check(m_config->isBlockingRemoteInput());
@@ -257,6 +231,7 @@ void ServerConfigDialog::updateUI()
   m_useMirrorDriver.check(m_config->getMirrorIsAllowed());
 
   m_showTrayIcon.check(m_config->getShowTrayIconFlag());
+  m_showEncryptionNotice.check(m_config->shouldShowEncryptionNotice());
   m_connectToRdp.check(m_config->getConnectToRdpFlag());
 
   updateCheckboxesState();
@@ -290,30 +265,6 @@ void ServerConfigDialog::apply()
 
   m_config->acceptRfbConnections(m_acceptRfbConnections.isChecked());
   m_config->acceptHttpConnections(m_acceptHttpConnections.isChecked());
-  m_config->useAuthentication(m_useAuthentication.isChecked());
-
-  //
-  // Primary password.
-  //
-
-  if (m_ppControl->getState() == PasswordControl::NewPassword) {
-    m_config->setPrimaryPassword((const unsigned char *)m_ppControl->getCryptedPassword());
-  } 
-  if (m_ppControl->getState() == PasswordControl::ResetPassword) {
-    m_config->deletePrimaryPassword();
-  }
-
-  //
-  // View only password.
-  //
-
-  if (m_vpControl->getState() == PasswordControl::NewPassword) {
-    m_config->setReadOnlyPassword((const unsigned char *)m_vpControl->getCryptedPassword());
-  }   
-  if (m_vpControl->getState() == PasswordControl::ResetPassword) {
-    m_config->deleteReadOnlyPassword();
-  }
-
   if (m_encryptionCredentialsChanged) {
     if (m_encryptionCredentialsPresent) {
       m_config->setEncryptionCredentials(m_pendingEncryptionCredentials);
@@ -321,6 +272,8 @@ void ServerConfigDialog::apply()
       m_config->deleteEncryptionCredentials();
     }
     m_encryptionCredentialsChanged = false;
+    SecureZeroMemory(&m_pendingEncryptionCredentials,
+                     sizeof(m_pendingEncryptionCredentials));
   }
 
   // Local input priority timeout string storage
@@ -339,6 +292,7 @@ void ServerConfigDialog::apply()
   m_config->setMirrorAllowing(m_useMirrorDriver.isChecked());
   m_config->setD3DAllowing(m_useD3D.isChecked());
   m_config->setShowTrayIconFlag(m_showTrayIcon.isChecked());
+  m_config->setShowEncryptionNotice(m_showEncryptionNotice.isChecked());
   m_config->setConnectToRdpFlag(m_connectToRdp.isChecked());
 }
 
@@ -354,15 +308,11 @@ void ServerConfigDialog::initControls()
   m_removeWallpaper.setWindow(GetDlgItem(hwnd, IDC_REMOVE_WALLPAPER));
   m_acceptRfbConnections.setWindow(GetDlgItem(hwnd, IDC_ACCEPT_RFB_CONNECTIONS));
   m_acceptHttpConnections.setWindow(GetDlgItem(hwnd, IDC_ACCEPT_HTTP_CONNECTIONS));
-  m_primaryPassword.setWindow(GetDlgItem(hwnd, IDC_PRIMARY_PASSWORD));
-  m_readOnlyPassword.setWindow(GetDlgItem(hwnd, IDC_VIEW_ONLY_PASSWORD));
-  m_useAuthentication.setWindow(GetDlgItem(hwnd, IDC_USE_AUTHENTICATION));
-  m_unsetPrimaryPassword.setWindow(GetDlgItem(hwnd, IDC_UNSET_PRIMARY_PASSWORD_BUTTON));
-  m_unsetReadOnlyPassword.setWindow(GetDlgItem(hwnd, IDC_UNSET_READONLY_PASSWORD_BUTTON));
   m_encryptionPassword.setWindow(GetDlgItem(hwnd, IDC_ENCRYPTION_PASSWORD));
   m_unsetEncryptionPassword.setWindow(
     GetDlgItem(hwnd, IDC_UNSET_ENCRYPTION_PASSWORD_BUTTON));
   m_showTrayIcon.setWindow(GetDlgItem(hwnd, IDC_SHOW_TVNCONTROL_ICON_CHECKBOX));
+  m_showEncryptionNotice.setWindow(GetDlgItem(hwnd, IDC_SHOW_ENCRYPTION_NOTICE));
   m_connectToRdp.setWindow(GetDlgItem(hwnd, IDC_CONNECT_RDP_SESSION));
 
   m_rfbPortSpin.setWindow(GetDlgItem(hwnd, IDC_RFB_PORT_SPIN));
@@ -401,8 +351,6 @@ void ServerConfigDialog::initControls()
   m_inactivityTimeoutSpin.setAccel(0, 1);
   m_inactivityTimeoutSpin.setRange32(0, INT_MAX);
 
-  m_ppControl = new PasswordControl(&m_primaryPassword, &m_unsetPrimaryPassword);
-  m_vpControl = new PasswordControl(&m_readOnlyPassword, &m_unsetReadOnlyPassword);
 }
 
 //
@@ -414,11 +362,9 @@ void ServerConfigDialog::updateControlDependencies()
   if (m_acceptRfbConnections.isChecked()) {
     m_rfbPort.setEnabled(true);
     m_acceptHttpConnections.setEnabled(true);
-    m_useAuthentication.setEnabled(true);
   } else {
     m_rfbPort.setEnabled(false);
     m_acceptHttpConnections.setEnabled(false);
-    m_useAuthentication.setEnabled(false);
   }
 
   if ((m_acceptHttpConnections.isChecked()) && (m_acceptHttpConnections.isEnabled())) {
@@ -426,11 +372,6 @@ void ServerConfigDialog::updateControlDependencies()
   } else {
     m_httpPort.setEnabled(false);
   }
-
-  bool passwordsAreEnabled = ((m_useAuthentication.isChecked()) && (m_useAuthentication.isEnabled()));
-
-  m_ppControl->setEnabled(passwordsAreEnabled);
-  m_vpControl->setEnabled(passwordsAreEnabled);
 
   m_rfbPortSpin.invalidate();
   m_httpPortSpin.invalidate();
@@ -448,13 +389,6 @@ void ServerConfigDialog::onAcceptHttpConnectionsClick()
   updateControlDependencies();
   ((ConfigDialog *)m_parentDialog)->updateApplyButtonState();
 }
-
-void ServerConfigDialog::onAuthenticationClick()
-{
-  updateControlDependencies();
-  ((ConfigDialog *)m_parentDialog)->updateApplyButtonState();
-}
-
 
 void ServerConfigDialog::onShowTrayIconCheckBoxClick()
 {
@@ -478,48 +412,21 @@ void ServerConfigDialog::onConnectToRdpCheckBoxClick()
 
 
 
-void ServerConfigDialog::onPrimaryPasswordChange()
-{
-  if (m_ppControl->showChangePasswordModalDialog(&m_ctrlThis)) {
-    ((ConfigDialog *)m_parentDialog)->updateApplyButtonState();
-  }
-}
-
-void ServerConfigDialog::onReadOnlyPasswordChange()
-{
-  if (m_vpControl->showChangePasswordModalDialog(&m_ctrlThis)) {
-    ((ConfigDialog *)m_parentDialog)->updateApplyButtonState();
-  }
-}
-
-void ServerConfigDialog::onUnsetPrimaryPasswordClick()
-{
-  m_ppControl->unsetPassword(true, m_ctrlThis.getWindow());
-
-  ((ConfigDialog *)m_parentDialog)->updateApplyButtonState();
-}
-
-void ServerConfigDialog::onUnsetReadOnlyPasswordClick()
-{
-  m_vpControl->unsetPassword(true, m_ctrlThis.getWindow());
-
-  ((ConfigDialog *)m_parentDialog)->updateApplyButtonState();
-}
-
 void ServerConfigDialog::onEncryptionPasswordChange()
 {
-  ChangePasswordDialog dialog(&m_ctrlThis,
-                              !m_encryptionCredentialsPresent,
-                              128, 16, false,
-                              _T("Set 2LabVnc Encryption Password"));
-  if (dialog.showModal() != IDOK) {
+  SecureServerCredentials credentials;
+  try {
+    if (!ChangePasswordDialog::promptForConnectionPasswords(&m_ctrlThis, &credentials)) {
+      return;
+    }
+    m_pendingEncryptionCredentials = credentials;
+  } catch (const Exception &error) {
+    SecureZeroMemory(&credentials, sizeof(credentials));
+    MessageBox(m_ctrlThis.getWindow(), error.getMessage(),
+               _T("2LabVnc Connection Passwords"), MB_ICONSTOP | MB_OK);
     return;
   }
-  StringStorage password(dialog.getPasswordInPlainText());
-  Utf8StringStorage utf8Password(&password);
-  m_pendingEncryptionCredentials = SecureServerCredentials::create(
-    reinterpret_cast<const UINT8 *>(utf8Password.getString()),
-    utf8Password.getLength(), 200000);
+  SecureZeroMemory(&credentials, sizeof(credentials));
   m_encryptionCredentialsPresent = true;
   m_encryptionCredentialsChanged = true;
   updateEncryptionPasswordControls();
@@ -529,7 +436,7 @@ void ServerConfigDialog::onEncryptionPasswordChange()
 void ServerConfigDialog::onUnsetEncryptionPasswordClick()
 {
   if (MessageBox(m_ctrlThis.getWindow(),
-                 _T("Unset the encryption password? Incoming connections will be disabled until a new one is set."),
+                 _T("Clear both connection passwords? Incoming connections will be disabled until both are set again."),
                  _T("2LabVnc Encryption"),
                  MB_YESNO | MB_ICONQUESTION) != IDYES) {
     return;
@@ -537,6 +444,8 @@ void ServerConfigDialog::onUnsetEncryptionPasswordClick()
   SecureZeroMemory(&m_pendingEncryptionCredentials,
                    sizeof(m_pendingEncryptionCredentials));
   m_encryptionCredentialsPresent = false;
+  m_acceptRfbConnections.check(false);
+  updateCheckboxesState();
   m_encryptionCredentialsChanged = true;
   updateEncryptionPasswordControls();
   ((ConfigDialog *)m_parentDialog)->updateApplyButtonState();
