@@ -20,13 +20,14 @@ Download the MSI for your system architecture, x86 or x64, from
    you want the Server to run as a service.
 4. Note the default RFB port, TCP `5900`. You can change the port in Server
    settings and adjust the firewall rule to match.
-5. Set and confirm the full-control and view-only passwords when prompted.
+5. When setup reports success, click **Finish**. In the Server password
+   window that opens, set and confirm the full-control and view-only passwords.
    The two passwords must differ and each must contain at least 16 characters.
    The eye button below the password fields shows or hides both fields in
    the current dialog. Validation messages appear directly below the fields.
 6. If setup skips the prompt, open Server settings and select **Set...** under
    **Full control and view only**. Apply the settings and enable incoming connections.
-7. At the end of interactive service setup, use **Copy fingerprint** to copy
+7. After confirming the passwords, use **Copy fingerprint** to copy
    the Server fingerprint. It is also available under **Fingerprint...** in
    Server settings. Share it through a trusted channel.
 

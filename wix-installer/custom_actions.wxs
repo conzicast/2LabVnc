@@ -40,12 +40,11 @@
                   Execute="immediate"
                   Return="asyncNoWait" />
 
-    <CustomAction Id="SetPasswordsAction"
+    <CustomAction Id="LaunchServicePasswordSetup"
                   FileKey="tvnserverEXE"
-                  ExeCommand='-checkservicepasswords'
-                  Impersonate="no"
-                  Execute="commit"
-                  Return="ignore" />
+                  ExeCommand="-checkservicepasswords"
+                  Execute="immediate"
+                  Return="asyncNoWait" />
 
     <CustomAction Id="SetDataForPasswordsActionSilently"
                   Return="check"

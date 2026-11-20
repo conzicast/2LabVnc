@@ -107,6 +107,11 @@
     <?endif?>
 
     <?ifndef SERVER_FREE ?>
+    <SetProperty Id="WIXUI_EXITDIALOGOPTIONALTEXT" Sequence="ui" After="LaunchServerTray"
+                 Value="Click Finish to configure the Server passwords and view its fingerprint.">
+      REGISTER_AS_SERVICE = 1 AND <![CDATA[UILevel = 5 AND IS_SILENT <> 1]]>
+      AND <![CDATA[&Server=3 AND NOT (!Server=3)]]> AND NOT REMOVE
+    </SetProperty>
     <InstallUISequence>
       <!-- Launch from the interactive installer after the service is started.
            The tray's per-session mutex prevents a duplicate. -->
@@ -172,11 +177,6 @@
       <Custom Action="StartService" After="RegService">
         (REGISTER_AS_SERVICE = 1 AND <![CDATA[IS_SILENT <> 1]]> OR
         SERVER_REGISTER_AS_SERVICE = 1 AND IS_SILENT = 1)
-        AND <![CDATA[&Server=3 AND NOT (!Server=3)]]>
-        AND NOT REMOVE
-      </Custom>
-      <Custom Action="SetPasswordsAction" After="StartService">
-        REGISTER_AS_SERVICE = 1 AND <![CDATA[IS_SILENT <> 1]]>
         AND <![CDATA[&Server=3 AND NOT (!Server=3)]]>
         AND NOT REMOVE
       </Custom>

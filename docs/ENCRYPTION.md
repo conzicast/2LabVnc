@@ -61,7 +61,8 @@ connection. The header and GCM tag add 32 bytes per record.
 6. Make sure **Accept incoming connections** is enabled and the configured
    TCP port is reachable.
 
-Server setup can prompt for both passwords after installation. If you cancel
+When the interactive service installation succeeds, click **Finish** to
+open the Server password setup and view its fingerprint. If you cancel
 the initial setup, set the pair in Server settings and enable incoming connections.
 The Server refuses sessions until a valid pair is configured.
 

@@ -11,6 +11,15 @@
 
       <DialogRef Id="AdditionalTasks" />
 
+      <?ifndef SERVER_FREE ?>
+      <!-- Finish closes the MSI wizard while password setup opens on the user's desktop. -->
+      <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction"
+               Value="LaunchServicePasswordSetup" Order="1">
+        REGISTER_AS_SERVICE = 1 AND <![CDATA[UILevel = 5 AND IS_SILENT <> 1]]>
+        AND <![CDATA[&Server=3 AND NOT (!Server=3)]]> AND NOT REMOVE
+      </Publish>
+      <?endif?>
+
       <!-- Skip the License Agreement dialog if it's needed. -->
       <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="SetupTypeDlg" Order="9">
         $(var.NoLicense) = 1
