@@ -75,6 +75,10 @@ The main solution is `tightvnc2017.sln`. The verified build uses Visual Studio
 2022 Build Tools, the MSVC `v143` toolset, and the Windows 10 SDK with
 `_WIN32_WINNT=0x0601`. The x86 and x64 MSI packages use WiX Toolset 3.14.1.
 
+Run `.\branding\generate-icons.ps1` on Windows to regenerate the 2L icons
+for the Viewer, Server, notification area, and MSI shortcuts. Each Windows
+icon contains nine sizes from 16 to 256 pixels.
+
 Build the x64 configuration with PowerShell:
 
 ```powershell

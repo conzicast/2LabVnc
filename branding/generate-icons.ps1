@@ -8,221 +8,51 @@ Add-Type -AssemblyName System.Drawing
 
 $iconSizes = @(16, 20, 24, 32, 40, 48, 64, 128, 256)
 $brandRed = [System.Drawing.ColorTranslator]::FromHtml('#E30613')
-$brandDarkRed = [System.Drawing.ColorTranslator]::FromHtml('#A4000B')
-$securityGreen = [System.Drawing.ColorTranslator]::FromHtml('#20A447')
-$white = [System.Drawing.Color]::White
-$monogramRed = [System.Drawing.ColorTranslator]::FromHtml('#B90018')
-$serverArtwork = Join-Path $PSScriptRoot 'server-large.png'
+$disabledGray = [System.Drawing.ColorTranslator]::FromHtml('#687383')
+$connectedGreen = [System.Drawing.ColorTranslator]::FromHtml('#087B46')
 
-function Draw-Monogram {
-  param(
-    [System.Drawing.Graphics]$Graphics,
-    [int]$Size,
-    [string]$Variant
-  )
-
-  # Snap the approved 16-pixel artwork to the output grid before filling.
-  $unit = $Size / 16.0
-  $Graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::None
-  $tileColor = if ($Variant -eq 'disabled') { $brandDarkRed } else { $monogramRed }
-  $tileBrush = [System.Drawing.SolidBrush]::new($tileColor)
-  $whiteBrush = [System.Drawing.Brushes]::White
-  try {
-    $shapes = @(
-      @{ Brush = $tileBrush; Vertices = @(1,0, 15,0, 15,1, 16,1, 16,15, 15,15, 15,16, 1,16, 1,15, 0,15, 0,1, 1,1) }
-      @{ Brush = $whiteBrush; Vertices = @(1,1, 4,1, 4,12, 15,12, 15,15, 1,15) }
-      @{ Brush = $whiteBrush; Vertices = @(7,2, 13,2, 13,3, 14,3, 14,6, 12,6, 12,7, 10,7, 10,8, 8,8, 8,9, 14,9, 14,11, 6,11, 6,7, 8,7, 8,6, 10,6, 10,5, 12,5, 12,4, 8,4, 8,5, 6,5, 6,3, 7,3) }
-    )
-    foreach ($shape in $shapes) {
-      [System.Drawing.Point[]]$points = for ($index = 0; $index -lt $shape.Vertices.Count; $index += 2) {
-        [System.Drawing.Point]::new(
-          [Math]::Round($shape.Vertices[$index] * $unit),
-          [Math]::Round($shape.Vertices[$index + 1] * $unit))
-      }
-      $Graphics.FillPolygon($shape.Brush, $points)
-    }
-  } finally {
-    $tileBrush.Dispose()
-  }
-
-  if ($Variant -in @('connected', 'disabled')) {
-    Draw-TrayBadge $Graphics $Size $Variant
-  }
-}
-
-function Draw-TrayBadge {
-  param([System.Drawing.Graphics]$Graphics, [int]$Size, [string]$Variant)
-
-  # Cover only the end of the L, leaving the 2 intact at tray sizes.
-  $badgeSize = [int][Math]::Round($Size * 5 / 16.0)
-  $left = $Size - $badgeSize
-  $Graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
-  if ($Variant -eq 'connected') {
-    $greenBrush = [System.Drawing.SolidBrush]::new($securityGreen)
-    $badgeOutline = [System.Drawing.Pen]::new([System.Drawing.Color]::White, $Size / 20.0)
-    [System.Drawing.PointF[]]$shield = @(
-      [System.Drawing.PointF]::new($left + $badgeSize * 0.5, $left + 0.5),
-      [System.Drawing.PointF]::new($Size - 0.5, $left + $badgeSize * 0.25),
-      [System.Drawing.PointF]::new($Size - 0.8, $left + $badgeSize * 0.65),
-      [System.Drawing.PointF]::new($left + $badgeSize * 0.5, $Size - 0.5),
-      [System.Drawing.PointF]::new($left + 0.8, $left + $badgeSize * 0.65),
-      [System.Drawing.PointF]::new($left + 0.5, $left + $badgeSize * 0.25))
-    try {
-      $Graphics.FillPolygon($greenBrush, $shield)
-      $Graphics.DrawPolygon($badgeOutline, $shield)
-    } finally {
-      $badgeOutline.Dispose()
-      $greenBrush.Dispose()
-    }
-  } else {
-    $Graphics.FillEllipse([System.Drawing.Brushes]::White, $left, $left, $badgeSize, $badgeSize)
-    $inset = [Math]::Max(1, $Size / 16.0)
-    $inside = $badgeSize - 2 * $inset
-    $Graphics.FillEllipse([System.Drawing.Brushes]::DimGray, $left + $inset, $left + $inset, $inside, $inside)
-    $slash = [System.Drawing.Pen]::new([System.Drawing.Color]::White, $inset)
-    try {
-      $Graphics.DrawLine($slash, $left + $inset, $left + $inset, $Size - $inset, $Size - $inset)
-    } finally {
-      $slash.Dispose()
-    }
-  }
-}
-
-function New-RoundedRectanglePath {
-  param(
-    [System.Drawing.RectangleF]$Bounds,
-    [float]$Radius
-  )
-
-  $diameter = $Radius * 2
+function New-TilePath {
   $path = [System.Drawing.Drawing2D.GraphicsPath]::new()
-  $path.AddArc($Bounds.X, $Bounds.Y, $diameter, $diameter, 180, 90)
-  $path.AddArc($Bounds.Right - $diameter, $Bounds.Y, $diameter, $diameter, 270, 90)
-  $path.AddArc($Bounds.Right - $diameter, $Bounds.Bottom - $diameter, $diameter, $diameter, 0, 90)
-  $path.AddArc($Bounds.X, $Bounds.Bottom - $diameter, $diameter, $diameter, 90, 90)
+  $inset = 0.32
+  $tileSize = 15.36
+  $diameter = 7.2
+  $farEdge = $inset + $tileSize - $diameter
+  $path.AddArc($inset, $inset, $diameter, $diameter, 180, 90)
+  $path.AddArc($farEdge, $inset, $diameter, $diameter, 270, 90)
+  $path.AddArc($farEdge, $farEdge, $diameter, $diameter, 0, 90)
+  $path.AddArc($inset, $farEdge, $diameter, $diameter, 90, 90)
   $path.CloseFigure()
   return $path
 }
 
-function Draw-Monitor {
-  param(
-    [System.Drawing.Graphics]$Graphics,
-    [int]$Size,
-    [System.Drawing.Brush]$Brush
-  )
-
-  $stroke = [Math]::Max(1.5, $Size * 0.045)
-  $monitorBounds = [System.Drawing.RectangleF]::new(
-    $Size * 0.10, $Size * 0.16, $Size * 0.80, $Size * 0.59)
-  $monitorPath = New-RoundedRectanglePath $monitorBounds ($Size * 0.07)
-  $pen = [System.Drawing.Pen]::new($Brush, $stroke)
-  $pen.Alignment = [System.Drawing.Drawing2D.PenAlignment]::Inset
-  $Graphics.DrawPath($pen, $monitorPath)
-
-  $standWidth = $Size * 0.27
-  $standHeight = $Size * 0.055
-  $standX = ($Size - $standWidth) / 2
-  $standY = $Size * 0.80
-  $Graphics.FillRectangle($Brush, $Size * 0.47, $Size * 0.74,
-                          $Size * 0.06, $Size * 0.09)
-  $standBounds = [System.Drawing.RectangleF]::new(
-    $standX, $standY, $standWidth, $standHeight)
-  $standPath = New-RoundedRectanglePath $standBounds ($standHeight / 2)
-  $Graphics.FillPath($Brush, $standPath)
-
-  $pen.Dispose()
-  $monitorPath.Dispose()
-  $standPath.Dispose()
+function New-NumeralPath {
+  $path = [System.Drawing.Drawing2D.GraphicsPath]::new()
+  $path.AddBezier(6.15, 5.35, 6.25, 3.70, 7.47, 2.65, 9.50, 2.65)
+  $path.AddBezier(9.50, 2.65, 11.45, 2.65, 12.75, 3.70, 12.75, 5.18)
+  $path.AddBezier(12.75, 5.18, 12.75, 6.55, 11.83, 7.28, 10.65, 8.02)
+  $path.AddLine(10.65, 8.02, 9.42, 8.86)
+  $path.AddLine(9.42, 8.86, 12.85, 8.86)
+  $path.AddLine(12.85, 8.86, 12.85, 10.65)
+  $path.AddLine(12.85, 10.65, 6.20, 10.65)
+  $path.AddLine(6.20, 10.65, 6.20, 9.08)
+  $path.AddLine(6.20, 9.08, 9.40, 6.86)
+  $path.AddBezier(9.40, 6.86, 10.15, 6.34, 10.59, 5.90, 10.59, 5.37)
+  $path.AddBezier(10.59, 5.37, 10.59, 4.75, 10.15, 4.45, 9.49, 4.45)
+  $path.AddBezier(9.49, 4.45, 8.79, 4.45, 8.27, 4.83, 8.22, 5.50)
+  $path.CloseFigure()
+  return $path
 }
 
-function Draw-ProductName {
+function Draw-Polygon {
   param(
     [System.Drawing.Graphics]$Graphics,
-    [int]$Size,
-    [System.Drawing.Brush]$Brush
+    [System.Drawing.Brush]$Brush,
+    [float[]]$Vertices
   )
-
-  $label = if ($Size -lt 32) { '2L' } else { '2Lab' }
-  $fontSize = if ($Size -lt 32) { $Size * 0.50 } else { $Size * 0.245 }
-  $font = [System.Drawing.Font]::new(
-    'Georgia', $fontSize,
-    [System.Drawing.FontStyle]::Bold,
-    [System.Drawing.GraphicsUnit]::Pixel)
-  $format = [System.Drawing.StringFormat]::new()
-  $format.Alignment = [System.Drawing.StringAlignment]::Center
-  $format.LineAlignment = [System.Drawing.StringAlignment]::Center
-  $format.FormatFlags = [System.Drawing.StringFormatFlags]::NoWrap
-  $textBounds = if ($Size -lt 32) {
-    [System.Drawing.RectangleF]::new(0, $Size * 0.18, $Size, $Size * 0.58)
-  } else {
-    [System.Drawing.RectangleF]::new($Size * 0.13, $Size * 0.25,
-                                     $Size * 0.74, $Size * 0.36)
+  [System.Drawing.PointF[]]$points = for ($index = 0; $index -lt $Vertices.Length; $index += 2) {
+    [System.Drawing.PointF]::new($Vertices[$index], $Vertices[$index + 1])
   }
-  $Graphics.DrawString($label, $font, $Brush, $textBounds, $format)
-  $format.Dispose()
-  $font.Dispose()
-}
-
-function Draw-SecurityShield {
-  param(
-    [System.Drawing.Graphics]$Graphics,
-    [int]$Size,
-    [System.Drawing.Brush]$GreenBrush,
-    [System.Drawing.Brush]$WhiteBrush
-  )
-
-  $left = $Size * 0.67
-  $top = $Size * 0.57
-  $width = $Size * 0.24
-  $height = $Size * 0.27
-  [System.Drawing.PointF[]]$points = @(
-    [System.Drawing.PointF]::new($left + $width * 0.50, $top),
-    [System.Drawing.PointF]::new($left + $width, $top + $height * 0.18),
-    [System.Drawing.PointF]::new($left + $width * 0.92, $top + $height * 0.68),
-    [System.Drawing.PointF]::new($left + $width * 0.50, $top + $height),
-    [System.Drawing.PointF]::new($left + $width * 0.08, $top + $height * 0.68),
-    [System.Drawing.PointF]::new($left, $top + $height * 0.18)
-  )
-  $Graphics.FillPolygon($GreenBrush, $points)
-
-  $keyholeRadius = [Math]::Max(1.0, $Size * 0.022)
-  $keyholeX = $left + $width * 0.50
-  $keyholeY = $top + $height * 0.45
-  $Graphics.FillEllipse($WhiteBrush,
-    $keyholeX - $keyholeRadius, $keyholeY - $keyholeRadius,
-    $keyholeRadius * 2, $keyholeRadius * 2)
-  $Graphics.FillRectangle($WhiteBrush,
-    $keyholeX - $keyholeRadius * 0.45, $keyholeY,
-    $keyholeRadius * 0.90, $height * 0.22)
-}
-
-function Draw-StateMark {
-  param(
-    [System.Drawing.Graphics]$Graphics,
-    [int]$Size,
-    [string]$Variant,
-    [System.Drawing.Brush]$WhiteBrush
-  )
-
-  if ($Variant -eq 'connected') {
-    $pen = [System.Drawing.Pen]::new($WhiteBrush, [Math]::Max(1.5, $Size * 0.025))
-    $pen.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
-    $pen.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
-    [System.Drawing.PointF[]]$checkPoints = @(
-      [System.Drawing.PointF]::new($Size * 0.72, $Size * 0.70),
-      [System.Drawing.PointF]::new($Size * 0.76, $Size * 0.74),
-      [System.Drawing.PointF]::new($Size * 0.84, $Size * 0.64)
-    )
-    $Graphics.DrawLines($pen, $checkPoints)
-    $pen.Dispose()
-  } elseif ($Variant -eq 'disabled') {
-    $pen = [System.Drawing.Pen]::new($WhiteBrush, [Math]::Max(2.0, $Size * 0.055))
-    $pen.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
-    $pen.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
-    $Graphics.DrawLine($pen, $Size * 0.20, $Size * 0.20,
-                       $Size * 0.80, $Size * 0.80)
-    $pen.Dispose()
-  }
+  $Graphics.FillPolygon($Brush, $points)
 }
 
 function New-IconBitmap {
@@ -232,53 +62,40 @@ function New-IconBitmap {
     [string]$Variant
   )
 
+  # Render the same artwork directly at each size. Keep the shield outside the
+  # numeral's main strokes so it remains legible in the notification area.
   $bitmap = [System.Drawing.Bitmap]::new(
     $Size, $Size, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
   $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
-  $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
-  $graphics.TextRenderingHint = [System.Drawing.Text.TextRenderingHint]::AntiAliasGridFit
-  $graphics.Clear([System.Drawing.Color]::Transparent)
-
-  if ($Size -lt 128) {
-    Draw-Monogram $graphics $Size $Variant
-    $graphics.Dispose()
-    return $bitmap
-  }
-  if ($Variant -eq 'server') {
-    $source = [System.Drawing.Image]::FromFile($serverArtwork)
-    try {
-      $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
-      $graphics.DrawImage($source, 0, 0, $Size, $Size)
-    } finally {
-      $source.Dispose()
-      $graphics.Dispose()
+  $tileColor = if ($Variant -eq 'disabled') { $disabledGray } else { $brandRed }
+  $tileBrush = [System.Drawing.SolidBrush]::new($tileColor)
+  $greenBrush = [System.Drawing.SolidBrush]::new($connectedGreen)
+  $whiteBrush = [System.Drawing.Brushes]::White
+  $tile = New-TilePath
+  $numeral = New-NumeralPath
+  try {
+    $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+    $graphics.ScaleTransform($Size / 16.0, $Size / 16.0)
+    $graphics.FillPath($tileBrush, $tile)
+    Draw-Polygon $graphics $whiteBrush @(
+      2.85, 2.65, 4.86, 2.65, 4.86, 11.72, 12.85, 11.72, 12.85, 13.68, 2.85, 13.68)
+    $graphics.FillPath($whiteBrush, $numeral)
+    if ($Variant -eq 'connected') {
+      Draw-Polygon $graphics $whiteBrush @(
+        12.83, 10.02, 15.95, 11.17, 15.66, 13.78, 12.83, 15.94, 9.98, 13.78, 9.70, 11.17)
+      Draw-Polygon $graphics $greenBrush @(
+        12.83, 11.02, 15.00, 11.81, 14.82, 13.29, 12.83, 14.83, 10.83, 13.29, 10.67, 11.81)
     }
-    return $bitmap
+  } finally {
+    $numeral.Dispose()
+    $tile.Dispose()
+    $greenBrush.Dispose()
+    $tileBrush.Dispose()
+    $graphics.Dispose()
   }
 
-  $backgroundColor = if ($Variant -eq 'disabled') { $brandDarkRed } else { $brandRed }
-  $backgroundBrush = [System.Drawing.SolidBrush]::new($backgroundColor)
-  $whiteBrush = [System.Drawing.SolidBrush]::new($white)
-  $greenBrush = [System.Drawing.SolidBrush]::new($securityGreen)
-  $tileBounds = [System.Drawing.RectangleF]::new(0, 0, $Size - 1, $Size - 1)
-  $tilePath = New-RoundedRectanglePath $tileBounds ($Size * 0.14)
-  $graphics.FillPath($backgroundBrush, $tilePath)
-
-  Draw-Monitor $graphics $Size $whiteBrush
-  Draw-ProductName $graphics $Size $whiteBrush
-  if ($Variant -ne 'viewer' -and $Variant -ne 'disabled') {
-    Draw-SecurityShield $graphics $Size $greenBrush $whiteBrush
-  }
-  Draw-StateMark $graphics $Size $Variant $whiteBrush
-
-  $tilePath.Dispose()
-  $backgroundBrush.Dispose()
-  $whiteBrush.Dispose()
-  $greenBrush.Dispose()
-  $graphics.Dispose()
   return $bitmap
 }
-
 function Write-MultiSizeIcon {
   param(
     [string]$Path,
