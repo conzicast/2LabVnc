@@ -61,7 +61,7 @@ public:
   // it return size of server frame buffer and pixelsize.
   void getServerGeometry(Rect *rect, int *pixelsize);
 
-  void setConnected(bool encrypted);
+  void setConnected(RemoteViewerCore::EncryptionNotice notice);
   void setViewerCore(RemoteViewerCore *viewerCore);
 
   // This function set state key "Ctrl", but not send data to server.
@@ -172,6 +172,7 @@ private:
   void drawImage(const RECT *src, const RECT *dst);
   void repaint(const Rect *repaintRect);
   void calcClientArea();
+  RemoteViewerCore::EncryptionNotice m_encryptionNotice;
   bool m_noticePendingFirstFrame;
   bool m_noticeVisible;
 };

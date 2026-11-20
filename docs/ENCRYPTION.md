@@ -4,8 +4,8 @@
 
 2LabVnc negotiates an authenticated encrypted channel during the Tight
 tunneling phase of RFB. The encrypted channel protects all subsequent RFB
-traffic. Both endpoints must run 2LabVnc. The Server requires the tunnel, and
-the Viewer rejects servers that do not offer it. There is no plaintext fallback.
+traffic. Both endpoints must run 2LabVnc for encrypted sessions. The Server
+requires the tunnel for every connection.
 
 ## Algorithms and parameters
 
@@ -82,6 +82,19 @@ The Server refuses sessions until a valid pair is configured.
 **Show encryption notice in Viewer** is enabled by default in Server settings.
 Changing it affects only this notice on subsequent connections. Encryption
 remains mandatory.
+
+## Connect to a classic VNC server
+
+Enter the host and port in 2LabVnc Viewer. It supports classic TightVNC and
+compatible RFB servers that offer standard VNC authentication or no
+authentication. If the session uses a legacy transport, **not encrypted**
+appears for two seconds when the first remote image arrives.
+
+An address and port with a saved 2LabVnc fingerprint still require the expected
+encrypted identity. The Viewer stops before legacy authentication if encryption
+is unavailable at that address. A failed encrypted handshake ends the connection.
+
+## Troubleshooting
 
 If the Server requests configuration of both passwords, set the pair in
 Server settings. A missing AES-GCM capability can indicate a mismatched

@@ -49,6 +49,7 @@ DesktopWindow::DesktopWindow(LogWriter *logWriter, ConnectionConfig *conConf)
   m_previousMousePos(-1, -1),
   m_previousMouseState(0),
   m_isBackgroundDirty(false),
+  m_encryptionNotice(RemoteViewerCore::EncryptionNotice::Hidden),
   m_noticePendingFirstFrame(false),
   m_noticeVisible(false)
 {
@@ -59,10 +60,11 @@ DesktopWindow::~DesktopWindow()
 {
 }
 
-void DesktopWindow::setConnected(bool encrypted)
+void DesktopWindow::setConnected(RemoteViewerCore::EncryptionNotice notice)
 {
   m_isConnected = true;
-  m_noticePendingFirstFrame = encrypted;
+  m_encryptionNotice = notice;
+  m_noticePendingFirstFrame = notice != RemoteViewerCore::EncryptionNotice::Hidden;
 }
 
 void DesktopWindow::setViewerCore(RemoteViewerCore *viewerCore)
@@ -587,21 +589,31 @@ void DesktopWindow::drawEncryptionNotice(HDC dc)
   }
   const int iconX = left + MulDiv(17, dpi, 96);
   const int iconY = top + height / 2;
-  const int checkUnit = MulDiv(4, dpi, 96);
-  HPEN checkPen = CreatePen(PS_SOLID, (std::max)(2, MulDiv(3, dpi, 96)), RGB(83, 232, 141));
-  if (checkPen != NULL) {
-    HGDIOBJ oldPen = SelectObject(dc, checkPen);
-    MoveToEx(dc, iconX, iconY, NULL);
-    LineTo(dc, iconX + checkUnit, iconY + checkUnit);
-    LineTo(dc, iconX + 3 * checkUnit, iconY - checkUnit);
+  const int iconUnit = (std::max)(1, MulDiv(4, dpi, 96));
+  const bool encrypted = m_encryptionNotice == RemoteViewerCore::EncryptionNotice::Encrypted;
+  const COLORREF iconColor = encrypted ? RGB(83, 232, 141) : RGB(255, 191, 80);
+  HPEN iconPen = CreatePen(PS_SOLID, (std::max)(2, MulDiv(3, dpi, 96)), iconColor);
+  if (iconPen != NULL) {
+    HGDIOBJ oldPen = SelectObject(dc, iconPen);
+    if (encrypted) {
+      MoveToEx(dc, iconX, iconY, NULL);
+      LineTo(dc, iconX + iconUnit, iconY + iconUnit);
+      LineTo(dc, iconX + 3 * iconUnit, iconY - iconUnit);
+    } else {
+      const int warningX = iconX + iconUnit;
+      MoveToEx(dc, warningX, iconY - 2 * iconUnit, NULL);
+      LineTo(dc, warningX, iconY);
+      MoveToEx(dc, warningX, iconY + iconUnit, NULL);
+      LineTo(dc, warningX, iconY + iconUnit + 1);
+    }
     SelectObject(dc, oldPen);
-    DeleteObject(checkPen);
+    DeleteObject(iconPen);
   }
   SelectObject(dc, GetStockObject(DEFAULT_GUI_FONT));
   SetBkMode(dc, TRANSPARENT);
   SetTextColor(dc, RGB(255, 255, 255));
   RECT label = { left + MulDiv(40, dpi, 96), top, banner.right - 4, banner.bottom };
-  DrawText(dc, _T("Encryption enabled"), -1, &label,
+  DrawText(dc, encrypted ? _T("Encryption enabled") : _T("not encrypted"), -1, &label,
            DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS | DT_NOPREFIX);
   RestoreDC(dc, saved);
 }

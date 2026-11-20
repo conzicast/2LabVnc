@@ -635,10 +635,20 @@ void RemoteViewerCore::enableTightSecurityType(bool enabled)
   m_isTightEnabled = enabled;	
 }
 
-bool RemoteViewerCore::shouldShowEncryptionNotice() const
+RemoteViewerCore::EncryptionNotice RemoteViewerCore::getEncryptionNotice() const
 {
   const SecureChannel *channel = m_tcpConnection.getSecureChannel();
-  return channel != 0 && channel->isActive() && !m_suppressEncryptionNotice;
+  if (channel == 0 || !channel->isActive()) {
+    return EncryptionNotice::Unencrypted;
+  }
+  return m_suppressEncryptionNotice ? EncryptionNotice::Hidden : EncryptionNotice::Encrypted;
+}
+
+void RemoteViewerCore::checkUnencryptedConnection()
+{
+  if (m_secureAuthentication != 0) {
+    m_secureAuthentication->checkUnencryptedConnection();
+  }
 }
 
 int RemoteViewerCore::negotiateSecurityType()
@@ -665,26 +675,31 @@ int RemoteViewerCore::negotiateSecurityType()
   m_logWriter.detail(_T("Security Types received (%d): %s"),
                    secTypes.size(), secTypeString.getString()); 
 
-  // select type security
-  m_logWriter.debug(_T("Selecting auth-handler"));
-  if (m_minor < 7 || !m_isTightEnabled ||
-      std::find(secTypes.begin(), secTypes.end(), SecurityDefs::TIGHT) == secTypes.end()) {
-    throw AuthException(_T("This Viewer requires an encrypted 2LabVnc Server"));
-  }
-  int typeSelected = SecurityDefs::TIGHT;
-  m_logWriter.info(_T("Security type is selected: %d"), typeSelected);
-  if (typeSelected == SecurityDefs::TIGHT) {
+  if (m_minor >= 7 && m_isTightEnabled &&
+      std::find(secTypes.begin(), secTypes.end(), SecurityDefs::TIGHT) != secTypes.end()) {
     m_logWriter.info(_T("Tight capabilities is enable"));
     m_isTight = true;
 
-    m_output->writeUInt8(typeSelected);
+    m_output->writeUInt8(SecurityDefs::TIGHT);
     m_output->flush();
 
     initTunnelling();
+    if (!m_tcpConnection.getSecureChannel()->isActive()) {
+      return initLegacyTightAuthentication();
+    }
     if (m_input->readUInt32() != 0) {
       throw AuthException(_T("The server requested an incompatible second authentication step"));
     }
     return AuthDefs::NONE;
+  }
+
+  checkUnencryptedConnection();
+  UINT32 typeSelected = SecurityDefs::NONE;
+  if (m_authHandlers.find(SecurityDefs::VNC) != m_authHandlers.end() &&
+      std::find(secTypes.begin(), secTypes.end(), SecurityDefs::VNC) != secTypes.end()) {
+    typeSelected = SecurityDefs::VNC;
+  } else if (std::find(secTypes.begin(), secTypes.end(), SecurityDefs::NONE) == secTypes.end()) {
+    throw AuthException(_T("The server does not offer a supported RFB security type."));
   }
 
   if (m_minor >= 7) {
@@ -744,6 +759,7 @@ void RemoteViewerCore::initTunnelling()
   }
   if (tunnelCount > 0) {
     bool hasSecureTunnel = false;
+    bool hasPlaintextTunnel = false;
     RfbCapabilityInfo firstCapability = {};
     for (UINT32 i = 0; i < tunnelCount; i++) {
       RfbCapabilityInfo cap = readCapability();
@@ -755,6 +771,10 @@ void RemoteViewerCore::initTunnelling()
                       TunnelDefs::SIG_AESGCM)) {
         hasSecureTunnel = true;
       }
+      if (cap.code == TunnelDefs::NOTUNNEL &&
+          cap.isEqual(VendorDefs::STANDARD, TunnelDefs::SIG_NONE)) {
+        hasPlaintextTunnel = true;
+      }
     }
     if (hasSecureTunnel) {
       if (m_secureAuthentication == 0) {
@@ -765,6 +785,10 @@ void RemoteViewerCore::initTunnelling()
       runSecureClientHandshake(m_input, m_output,
                                m_tcpConnection.getSecureChannel(),
                                m_secureAuthentication);
+    } else if (hasPlaintextTunnel) {
+      checkUnencryptedConnection();
+      m_output->writeUInt32(TunnelDefs::NOTUNNEL);
+      m_output->flush();
     } else {
       // An RFB 3.8 authentication failure has the same leading value as a
       // single Tight tunnel capability. Recover the server's reason when the
@@ -791,12 +815,43 @@ void RemoteViewerCore::initTunnelling()
         reasonAnsi.toStringStorage(&reasonText);
         throw Exception(reasonText.getString());
       }
-      throw Exception(_T("Server does not offer required 2LabVnc AES-256-GCM encryption"));
+      throw AuthException(_T("The server does not offer a supported Tight tunnel."));
     }
   } else {
-    throw Exception(_T("Server attempted an unencrypted TightVNC connection"));
+    checkUnencryptedConnection();
   }
   m_logWriter.debug(_T("Tunneling is init"));
+}
+
+int RemoteViewerCore::initLegacyTightAuthentication()
+{
+  const UINT32 authCount = m_input->readUInt32();
+  if (authCount == 0) {
+    return AuthDefs::NONE;
+  }
+  if (authCount > 64) {
+    throw AuthException(_T("Too many Tight authentication capabilities."));
+  }
+
+  bool hasNone = false;
+  bool hasVnc = false;
+  for (UINT32 index = 0; index < authCount; ++index) {
+    const RfbCapabilityInfo cap = readCapability();
+    hasNone |= cap.code == AuthDefs::NONE &&
+               cap.isEqual(VendorDefs::STANDARD, AuthDefs::SIG_NONE);
+    hasVnc |= cap.code == AuthDefs::VNC &&
+              cap.isEqual(VendorDefs::STANDARD, AuthDefs::SIG_VNC);
+  }
+
+  UINT32 selected = AuthDefs::NONE;
+  if (hasVnc && m_authHandlers.find(AuthDefs::VNC) != m_authHandlers.end()) {
+    selected = AuthDefs::VNC;
+  } else if (!hasNone) {
+    throw AuthException(_T("The server does not offer a supported Tight authentication method."));
+  }
+  m_output->writeUInt32(selected);
+  m_output->flush();
+  return selected;
 }
 
 void RemoteViewerCore::setFbProperties(const Dimension *fbDimension,

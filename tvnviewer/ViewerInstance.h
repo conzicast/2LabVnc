@@ -57,6 +57,7 @@ public:
   void waitViewer();
 
 private:
+  void checkUnencryptedConnection() override;
   void requestPassword(const UINT8 *fingerprint, std::vector<UINT8> *password);
   void onAuthenticated(const UINT8 *fingerprint);
   StringStorage m_fingerprintSetting;

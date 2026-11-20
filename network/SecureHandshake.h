@@ -123,6 +123,8 @@ class SecureClientAuthentication
 {
 public:
   virtual ~SecureClientAuthentication() {}
+  // Lets the Viewer enforce its saved identity policy before legacy authentication.
+  virtual void checkUnencryptedConnection() {}
   // Called only after the Server proves possession of its identity key.
   virtual void requestPassword(const UINT8 *fingerprint, std::vector<UINT8> *password) = 0;
   virtual void onAuthenticated(const UINT8 *fingerprint) = 0;

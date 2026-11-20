@@ -397,7 +397,8 @@ public:
   // the server claims that supports it.
   //
   void enableTightSecurityType(bool enabled);
-  bool shouldShowEncryptionNotice() const;
+  enum class EncryptionNotice { Hidden, Encrypted, Unencrypted };
+  EncryptionNotice getEncryptionNotice() const;
   
   //
   // Work with capabilities is documented in interface CapabilitiesManager.
@@ -525,6 +526,8 @@ private:
   StringStorage getSecurityTypeName(UINT32 securityType) const;
   StringStorage getAuthenticationTypeName(UINT32 authenticationType) const;
   void initTunnelling();
+  int initLegacyTightAuthentication();
+  void checkUnencryptedConnection();
   void readCapabilities();
   RfbCapabilityInfo readCapability();
   void sendEncodings();

@@ -18,7 +18,8 @@ See sections 11 and 12 of the [GNU GPLv2 license](LICENSE).
 
 ## Features
 
-- Mandatory Tight RFB tunnel (`CNSG/AESGCM03`) with no plaintext fallback
+- Mandatory Tight RFB tunnel (`CNSG/AESGCM03`) for every 2LabVnc Server session
+- Viewer compatibility with classic TightVNC and standard VNC authentication
 - Pinned SHA-256 server fingerprint checked before any password proof is sent
 - Two separate passwords for full control and view-only access, with one Viewer prompt
 - AES-256-GCM with separate keys and nonce sequences in each direction
@@ -32,7 +33,7 @@ See sections 11 and 12 of the [GNU GPLv2 license](LICENSE).
 
 - Microsoft Windows 7 or later, x86 or x64
 - Administrator rights to install the Server, register the service, and add the firewall rule
-- 2LabVnc on both ends of the connection
+- 2LabVnc on both ends for encrypted sessions
 
 Windows 7 is the configured minimum. Compatibility on a clean Windows 7 VM
 still needs verification.
@@ -54,6 +55,11 @@ still needs verification.
    blocks changed fingerprints.
    The Viewer shows an **Encryption enabled** notice for two seconds after
    the first remote image arrives. The Server can hide the notice.
+
+The Viewer can also connect to classic TightVNC and compatible RFB servers
+using legacy authentication. It displays **not encrypted** for two seconds
+when the first remote image arrives. An address with a saved 2LabVnc
+fingerprint still requires the encrypted protocol.
 
 When upgrading from a version before 1.2.0, update both the Server and Viewer.
 Set a fresh pair of role passwords, then obtain the fingerprint from the

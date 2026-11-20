@@ -1100,7 +1100,7 @@ void ViewerWindow::onConnected(RfbOutputGate *output)
   // Set flags.
   m_isConnected = true;
   m_sizeIsChanged = false;
-  m_dsktWnd.setConnected(m_viewerCore->shouldShowEncryptionNotice());
+  m_dsktWnd.setConnected(m_viewerCore->getEncryptionNotice());
 
   // Set output for client-to-server messages in file transfer.
   m_fileTransfer->setOutput(output);

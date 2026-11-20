@@ -188,6 +188,18 @@ void ViewerInstance::start()
   }
 }
 
+void ViewerInstance::checkUnencryptedConnection()
+{
+  AutoLock lock(&fingerprintSettingsLock);
+  StringStorage saved;
+  if (!m_fingerprintSetting.isEmpty() &&
+      ViewerSettingsManager::getInstance()->getString(m_fingerprintSetting.getString(), &saved)) {
+    throw IOException(_T("This address has a saved 2LabVnc fingerprint. ")
+                      _T("The server no longer offers the expected encrypted connection. ")
+                      _T("Verify the server with your administrator."));
+  }
+}
+
 void ViewerInstance::requestPassword(const UINT8 *fingerprint, std::vector<UINT8> *password)
 {
   bool alreadyTrusted;
