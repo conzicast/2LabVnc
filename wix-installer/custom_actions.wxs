@@ -57,6 +57,24 @@
                   Execute="immediate"
                   Return="asyncNoWait" />
 
+    <CustomAction Id="ConfirmRemovalOfServerCredentials"
+                  BinaryKey="SetupHelperBin"
+                  DllEntry="ConfirmRemovalOfServerCredentials"
+                  Execute="immediate"
+                  Return="check" />
+    <CustomAction Id="RemoveServerCredentials"
+                  BinaryKey="SetupHelperBin"
+                  DllEntry="RemoveServerCredentials"
+                  Execute="commit"
+                  Impersonate="no"
+                  Return="ignore" />
+    <CustomAction Id="RemoveUserServerCredentials"
+                  BinaryKey="SetupHelperBin"
+                  DllEntry="RemoveUserServerCredentials"
+                  Execute="commit"
+                  Impersonate="yes"
+                  Return="ignore" />
+
     <CustomAction Id="SetDataForPasswordsActionSilently"
                   Return="check"
                   Property="SetPasswordsActionSilently"

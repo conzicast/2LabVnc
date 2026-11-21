@@ -129,6 +129,21 @@
 
       <Custom Action="WixCloseApplications" Before="InstallValidate" />
 
+      <Custom Action="ConfirmRemovalOfServerCredentials" After="InstallValidate">
+        Installed AND NOT UPGRADINGPRODUCTCODE AND NOT PREVIOUSFOUND
+        AND <![CDATA[UILevel >= 3 AND !Server=3 AND (&Server=2 OR REMOVE~="ALL")]]>
+      </Custom>
+      <Custom Action="RemoveServerCredentials" After="RemoveFiles">
+        Installed AND NOT UPGRADINGPRODUCTCODE AND NOT PREVIOUSFOUND
+        AND RemoveServerCredentialsChosen = 1
+        AND <![CDATA[UILevel >= 3 AND !Server=3 AND (&Server=2 OR REMOVE~="ALL")]]>
+      </Custom>
+      <Custom Action="RemoveUserServerCredentials" After="RemoveServerCredentials">
+        Installed AND NOT UPGRADINGPRODUCTCODE AND NOT PREVIOUSFOUND
+        AND RemoveServerCredentialsChosen = 1
+        AND <![CDATA[UILevel >= 3 AND !Server=3 AND (&Server=2 OR REMOVE~="ALL")]]>
+      </Custom>
+
       <!--<Custom Action="UnregService" After="InstallInitialize">
          If the Server feature is deselected
         <![CDATA[(&Server=2) AND (!Server=3)]]>

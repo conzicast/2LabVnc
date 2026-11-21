@@ -86,6 +86,12 @@ removes the `2LabVncServer` Windows service before deleting the Server files.
 Setup asks the Server tray to exit and allows up to 15 seconds for it
 to release the executable before Windows Installer checks for files in use.
 
+During interactive Server removal, choose **No** to delete both role
+passwords and the Server identity, or keep the default **Yes** to reuse
+them after reinstalling. The choice covers Service Mode and Application
+Mode for the Windows account running setup. Cleanup runs after a successful
+uninstall. Upgrades and silent removals keep these credentials.
+
 If Windows Installer reports that files are in use, cancel the uninstall.
 From **2LabVnc Server (Service Mode)** in the Start menu, run
 **Stop 2LabVnc Service** as an administrator and wait until the service has

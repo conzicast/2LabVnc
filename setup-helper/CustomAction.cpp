@@ -57,14 +57,76 @@ UINT __stdcall AllowSas(MSIHANDLE hInstall)
   return ERROR_SUCCESS;
 }
 
-static void logTrayLaunch(MSIHANDLE install, const TCHAR *message)
+static int sendInstallerMessage(MSIHANDLE install, INSTALLMESSAGE type, const TCHAR *message)
 {
+  int response = 0;
   const MSIHANDLE record = MsiCreateRecord(0);
   if (record != 0) {
-    MsiRecordSetString(record, 0, message);
-    MsiProcessMessage(install, INSTALLMESSAGE_INFO, record);
+    if (MsiRecordSetString(record, 0, message) == ERROR_SUCCESS) {
+      response = MsiProcessMessage(install, type, record);
+    }
     MsiCloseHandle(record);
   }
+  return response;
+}
+
+UINT __stdcall ConfirmRemovalOfServerCredentials(MSIHANDLE install)
+{
+  const TCHAR property[] = _T("RemoveServerCredentialsChosen");
+  UINT result = MsiSetProperty(install, property, NULL);
+  if (result != ERROR_SUCCESS) {
+    return result;
+  }
+
+  const int response = sendInstallerMessage(install,
+    static_cast<INSTALLMESSAGE>(INSTALLMESSAGE_USER | MB_YESNO | MB_ICONQUESTION | MB_DEFBUTTON1),
+    _T("Keep the Server's saved access passwords and identity fingerprint? ")
+    _T("Choose No to permanently delete them after uninstalling the Server."));
+  if (response == IDNO) {
+    return MsiSetProperty(install, property, _T("1"));
+  }
+  return response == IDCANCEL ? ERROR_INSTALL_USEREXIT : ERROR_SUCCESS;
+}
+
+static LONG deleteServerCredentialValue(HKEY root, const TCHAR *path)
+{
+  HKEY key = NULL;
+  LONG result = RegOpenKeyEx(root, path, 0, KEY_SET_VALUE, &key);
+  if (result == ERROR_SUCCESS) {
+    result = RegDeleteValue(key, RegistryPaths::SERVER_ENCRYPTION_CREDENTIALS_VALUE);
+    RegCloseKey(key);
+  }
+  return result == ERROR_FILE_NOT_FOUND ? ERROR_SUCCESS : result;
+}
+
+static UINT reportCredentialRemoval(MSIHANDLE install, LONG result, const TCHAR *failure)
+{
+  if (result == ERROR_SUCCESS) {
+    return ERROR_SUCCESS;
+  }
+  sendInstallerMessage(install, INSTALLMESSAGE_WARNING, failure);
+  return ERROR_INSTALL_FAILURE;
+}
+
+UINT __stdcall RemoveServerCredentials(MSIHANDLE install)
+{
+  const LONG result = deleteServerCredentialValue(HKEY_LOCAL_MACHINE,
+                                                  RegistryPaths::SERVER_PATH);
+  return reportCredentialRemoval(install, result,
+    _T("Setup could not delete the saved 2LabVnc service passwords and identity."));
+}
+
+UINT __stdcall RemoveUserServerCredentials(MSIHANDLE install)
+{
+  // Resolve the profile of the user impersonated by Windows Installer.
+  HKEY user = NULL;
+  LONG result = RegOpenCurrentUser(KEY_READ, &user);
+  if (result == ERROR_SUCCESS) {
+    result = deleteServerCredentialValue(user, RegistryPaths::SERVER_PATH);
+    RegCloseKey(user);
+  }
+  return reportCredentialRemoval(install, result,
+    _T("Setup could not delete the saved 2LabVnc application passwords and identity."));
 }
 
 UINT __stdcall LaunchTrayInInstallerSession(MSIHANDLE install)
@@ -81,7 +143,8 @@ UINT __stdcall LaunchTrayInInstallerSession(MSIHANDLE install)
     if (*value < _T('0') || *value > _T('9') || clientPid == 0 ||
         *separator != _T('|') || separator[1] == 0 ||
         !ProcessIdToSessionId(clientPid, &sessionId) || sessionId == 0) {
-      logTrayLaunch(install, _T("2LabVnc tray: no interactive installer session found."));
+      sendInstallerMessage(install, INSTALLMESSAGE_INFO,
+                           _T("2LabVnc tray: no interactive installer session found."));
       return ERROR_INSTALL_FAILURE;
     }
 
@@ -90,10 +153,11 @@ UINT __stdcall LaunchTrayInInstallerSession(MSIHANDLE install)
     StringStorage message;
     message.format(_T("2LabVnc tray: launch in installer session %lu returned Windows error %lu."),
                    sessionId, error);
-    logTrayLaunch(install, message.getString());
+    sendInstallerMessage(install, INSTALLMESSAGE_INFO, message.getString());
     return error == ERROR_SUCCESS ? ERROR_SUCCESS : ERROR_INSTALL_FAILURE;
   } catch (...) {
-    logTrayLaunch(install, _T("2LabVnc tray: could not process installer session data."));
+    sendInstallerMessage(install, INSTALLMESSAGE_INFO,
+                         _T("2LabVnc tray: could not process installer session data."));
     return ERROR_INSTALL_FAILURE;
   }
 }

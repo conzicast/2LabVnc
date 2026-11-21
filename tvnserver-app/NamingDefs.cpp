@@ -31,6 +31,7 @@ const TCHAR ProductNames::PRODUCT_NAME[] = _T("2LabVnc");
 const TCHAR ProductNames::SERVER_PRODUCT_NAME[] = _T("2LabVnc Server");
 
 const TCHAR RegistryPaths::SERVER_PATH[] = _T("Software\\2Lab\\2LabVnc\\Server");
+const TCHAR RegistryPaths::SERVER_ENCRYPTION_CREDENTIALS_VALUE[] = _T("PinnedRoleCredentials");
 const TCHAR RegistryPaths::SERVER_REVERSE_CONN_HISTORY_PATH[] =
   _T("Software\\2Lab\\2LabVnc\\Control\\ReverseConnectionHistory");
 

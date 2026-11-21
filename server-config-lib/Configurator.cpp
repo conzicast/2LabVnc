@@ -38,7 +38,6 @@
 
 namespace
 {
-  const TCHAR ENCRYPTION_CREDENTIALS_VALUE[] = _T("PinnedRoleCredentials");
   const TCHAR SHOW_ENCRYPTION_NOTICE_VALUE[] = _T("ShowEncryptionNotice");
   const UINT32 ENCRYPTION_CREDENTIALS_VERSION = 3;
   const size_t ENCRYPTION_CREDENTIALS_SIZE = 4 + 4 +
@@ -715,7 +714,7 @@ bool Configurator::saveServerConfig(SettingsManager *sm)
     std::vector<UINT8> protectedData;
     m_serverConfig.getEncryptionCredentials(&credentials);
     if (!protectCredentials(credentials, &protectedData) ||
-        !sm->setBinaryData(ENCRYPTION_CREDENTIALS_VALUE,
+        !sm->setBinaryData(RegistryPaths::SERVER_ENCRYPTION_CREDENTIALS_VALUE,
                            &protectedData.front(), protectedData.size())) {
       saveResult = false;
     }
@@ -724,7 +723,7 @@ bool Configurator::saveServerConfig(SettingsManager *sm)
       SecureZeroMemory(&protectedData.front(), protectedData.size());
     }
   } else {
-    sm->deleteKey(ENCRYPTION_CREDENTIALS_VALUE);
+    sm->deleteKey(RegistryPaths::SERVER_ENCRYPTION_CREDENTIALS_VALUE);
   }
   if (!sm->setBoolean(_T("AlwaysShared"), m_serverConfig.isAlwaysShared())) {
     saveResult = false;
@@ -897,7 +896,7 @@ bool Configurator::loadServerConfig(SettingsManager *sm, ServerConfig *config)
   std::vector<UINT8> protectedCredentials(1024);
   size_t protectedSize = protectedCredentials.size();
   SecureServerCredentials encryptionCredentials;
-  if (!sm->getBinaryData(ENCRYPTION_CREDENTIALS_VALUE,
+  if (!sm->getBinaryData(RegistryPaths::SERVER_ENCRYPTION_CREDENTIALS_VALUE,
                          &protectedCredentials.front(), &protectedSize) ||
       !unprotectCredentials(&protectedCredentials.front(), protectedSize,
                             &encryptionCredentials)) {

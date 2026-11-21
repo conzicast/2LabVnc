@@ -4,6 +4,9 @@ EXPORTS
 
 AllowSas
 LaunchTrayInInstallerSession
+ConfirmRemovalOfServerCredentials
+RemoveServerCredentials
+RemoveUserServerCredentials
 SetRfbPassword
 SetControlPassword
 SetViewOnlyPassword
