@@ -40,6 +40,17 @@
                   Execute="immediate"
                   Return="asyncNoWait" />
 
+    <CustomAction Id="SetInstallerTrayData"
+                  Property="LaunchTrayInInstallerSession"
+                  Value="[CLIENTPROCESSID]|[#tvnserverEXE]"
+                  Return="check" />
+    <CustomAction Id="LaunchTrayInInstallerSession"
+                  BinaryKey="SetupHelperBin"
+                  DllEntry="LaunchTrayInInstallerSession"
+                  Impersonate="no"
+                  Execute="commit"
+                  Return="ignore" />
+
     <CustomAction Id="LaunchServicePasswordSetup"
                   FileKey="tvnserverEXE"
                   ExeCommand="-checkservicepasswords"

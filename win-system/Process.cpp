@@ -25,6 +25,53 @@
 #include "Process.h"
 #include "SystemException.h"
 
+#include <userenv.h>
+#include <wtsapi32.h>
+#include <vector>
+
+#pragma comment(lib, "userenv.lib")
+#pragma comment(lib, "wtsapi32.lib")
+
+DWORD Process::startAsSessionUser(DWORD sessionId, const TCHAR *path,
+                                  const TCHAR *args)
+{
+  if (sessionId == 0 || sessionId == MAXDWORD || path == 0 || *path == 0 || args == 0) {
+    return ERROR_INVALID_PARAMETER;
+  }
+
+  StringStorage command;
+  command.format(_T("\"%s\" %s"), path, args);
+  const TCHAR *first = command.getString();
+  std::vector<TCHAR> commandLine(first, first + command.getLength() + 1);
+  HANDLE token = 0;
+  if (!WTSQueryUserToken(sessionId, &token)) {
+    return GetLastError();
+  }
+
+  DWORD error = ERROR_SUCCESS;
+  LPVOID environment = 0;
+  if (CreateEnvironmentBlock(&environment, token, FALSE)) {
+    STARTUPINFO startup = {0};
+    startup.cb = sizeof(startup);
+    TCHAR desktop[] = _T("winsta0\\default");
+    startup.lpDesktop = desktop;
+    PROCESS_INFORMATION process = {0};
+    if (CreateProcessAsUser(token, path, &commandLine[0], 0, 0, FALSE,
+                            CREATE_UNICODE_ENVIRONMENT, environment, 0,
+                            &startup, &process)) {
+      CloseHandle(process.hThread);
+      CloseHandle(process.hProcess);
+    } else {
+      error = GetLastError();
+    }
+    DestroyEnvironmentBlock(environment);
+  } else {
+    error = GetLastError();
+  }
+  CloseHandle(token);
+  return error;
+}
+
 Process::Process(const TCHAR *path, const TCHAR *args)
 : m_hProcess(0),
   m_hThread(0),

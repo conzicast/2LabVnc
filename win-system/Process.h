@@ -35,6 +35,10 @@
 class Process
 {
 public:
+  // Starts a process as the signed-in user on the specified interactive desktop.
+  // The caller must run as LocalSystem. Returns a Windows error code on failure.
+  static DWORD startAsSessionUser(DWORD sessionId, const TCHAR *path, const TCHAR *args);
+
   /**
    * Creates new Process class instance.
    * @param path full path to file.

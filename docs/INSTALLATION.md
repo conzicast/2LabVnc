@@ -46,13 +46,15 @@ The internal service name is `2LabVncServer` and its display name is
 
 ## Notification area and Start menu
 
-Interactive setup starts the notification area icon in the installer’s
-Windows session after installing and starting the Server as a service.
+Interactive setup starts the notification area icon on the signed-in
+desktop that launched setup, including a Remote Desktop session. The
+icon starts after the Server service.
 The service also starts the icon for users already signed in, and the
 icon starts at subsequent sign-ins. Windows may place it in the hidden icons area.
 The tray retries registration if Windows Explorer is still starting.
 
-Click the Server icon in the Windows notification area to open settings.
+Click the Server icon in the Windows notification area to set or change
+the full-control and view-only passwords or edit other Server settings.
 Windows prompts for administrator rights when configuring the service.
 Closing the service settings dialog reloads the saved configuration.
 The Start menu includes shortcuts to run the Server in application mode,

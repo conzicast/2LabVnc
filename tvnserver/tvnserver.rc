@@ -439,8 +439,8 @@ IDI_DISABLED            ICON                    ".\\res\\disabled.ico"
 //
 
 1 VERSIONINFO
- FILEVERSION 1,2,8,0
- PRODUCTVERSION 1,2,8,0
+ FILEVERSION 1,2,9,0
+ PRODUCTVERSION 1,2,9,0
  FILEFLAGSMASK 0x0L
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -457,12 +457,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "2lab snc"
             VALUE "FileDescription", "2LabVnc Server"
-            VALUE "FileVersion", "1, 2, 8, 0"
+            VALUE "FileVersion", "1, 2, 9, 0"
             VALUE "InternalName", "2labvnc-server"
             VALUE "LegalCopyright", "Copyright (C) 2026 2lab snc; based on TightVNC 2.x"
             VALUE "OriginalFilename", "2labvnc-server.exe"
             VALUE "ProductName", "2LabVnc"
-            VALUE "ProductVersion", "1, 2, 8, 0"
+            VALUE "ProductVersion", "1, 2, 9, 0"
         END
     END
     BLOCK "VarFileInfo"

@@ -28,54 +28,15 @@
 #include "tvnserver-app/NamingDefs.h"
 #include "tvncontrol-app/ControlCommandLine.h"
 
+#include "win-system/Process.h"
 #include "win-system/SCMClient.h"
 #include "win-system/Environment.h"
 
-#include <userenv.h>
 #include <wtsapi32.h>
-#include <vector>
 
-#pragma comment(lib, "userenv.lib")
 #pragma comment(lib, "wtsapi32.lib")
 
 namespace {
-
-void startTrayInSession(DWORD sessionId, const TCHAR *executable,
-                        const StringStorage &arguments, LogWriter &log)
-{
-  // CreateProcessAsUser may change the command line buffer.
-  const TCHAR *first = arguments.getString();
-  std::vector<TCHAR> commandLine(first, first + arguments.getLength() + 1);
-  HANDLE userToken = 0;
-  if (!WTSQueryUserToken(sessionId, &userToken)) {
-    log.warning(_T("Could not obtain the tray user token for session %lu (Windows error %lu)"),
-                sessionId, GetLastError());
-    return;
-  }
-
-  LPVOID environment = 0;
-  if (CreateEnvironmentBlock(&environment, userToken, FALSE)) {
-    STARTUPINFO startup = {0};
-    startup.cb = sizeof(startup);
-    TCHAR desktop[] = _T("winsta0\\default");
-    startup.lpDesktop = desktop;
-    PROCESS_INFORMATION process = {0};
-    if (CreateProcessAsUser(userToken, executable, &commandLine[0], 0, 0, FALSE,
-                            CREATE_UNICODE_ENVIRONMENT, environment, 0,
-                            &startup, &process)) {
-      CloseHandle(process.hThread);
-      CloseHandle(process.hProcess);
-    } else {
-      log.warning(_T("Could not start the tray in session %lu (Windows error %lu)"),
-                  sessionId, GetLastError());
-    }
-    DestroyEnvironmentBlock(environment);
-  } else {
-    log.warning(_T("Could not create the tray environment for session %lu (Windows error %lu)"),
-                sessionId, GetLastError());
-  }
-  CloseHandle(userToken);
-}
 
 void startTrayForActiveUsers(LogWriter &log)
 {
@@ -86,7 +47,7 @@ void startTrayForActiveUsers(LogWriter &log)
   }
 
   StringStorage arguments;
-  arguments.format(_T("\"%s\" %s %s"), executable.getString(),
+  arguments.format(_T("%s %s"),
                    ControlCommandLine::CONTROL_SERVICE, ControlCommandLine::SLAVE_MODE);
   // Service startup covers users already logged in. The Run entry covers future logons.
   PWTS_SESSION_INFO sessions = 0;
@@ -98,7 +59,13 @@ void startTrayForActiveUsers(LogWriter &log)
   }
   for (DWORD index = 0; index < count; ++index) {
     if (sessions[index].SessionId != 0 && sessions[index].State == WTSActive) {
-      startTrayInSession(sessions[index].SessionId, executable.getString(), arguments, log);
+      const DWORD sessionId = sessions[index].SessionId;
+      const DWORD error = Process::startAsSessionUser(
+        sessionId, executable.getString(), arguments.getString());
+      if (error != ERROR_SUCCESS) {
+        log.warning(_T("Could not start the tray in session %lu (Windows error %lu)"),
+                    sessionId, error);
+      }
     }
   }
   WTSFreeMemory(sessions);

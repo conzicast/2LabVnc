@@ -3,6 +3,7 @@
 EXPORTS
 
 AllowSas
+LaunchTrayInInstallerSession
 SetRfbPassword
 SetControlPassword
 SetViewOnlyPassword

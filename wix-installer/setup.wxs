@@ -180,6 +180,16 @@
         AND <![CDATA[&Server=3 AND NOT (!Server=3)]]>
         AND NOT REMOVE
       </Custom>
+      <Custom Action="SetInstallerTrayData" After="StartService">
+        REGISTER_AS_SERVICE = 1 AND <![CDATA[UILevel = 5 AND IS_SILENT <> 1]]>
+        AND <![CDATA[&Server=3 AND NOT (!Server=3)]]>
+        AND NOT REMOVE
+      </Custom>
+      <Custom Action="LaunchTrayInInstallerSession" After="SetInstallerTrayData">
+        REGISTER_AS_SERVICE = 1 AND <![CDATA[UILevel = 5 AND IS_SILENT <> 1]]>
+        AND <![CDATA[&Server=3 AND NOT (!Server=3)]]>
+        AND NOT REMOVE
+      </Custom>
     <?endif?>
 
       <Custom Action='AlreadyUpdated' After='FindRelatedProducts'>SELFFOUND</Custom>
