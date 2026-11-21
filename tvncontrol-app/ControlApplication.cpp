@@ -310,8 +310,7 @@ void ControlApplication::execute()
       }
     }
   } catch (...) {
-    m_trayIcon->terminate();
-    m_trayIcon->waitForTermination();
+    // The UI loop owns the tray; it joins this worker before freeing the icon.
     shutdown();
   }
 }

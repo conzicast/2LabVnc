@@ -76,7 +76,7 @@
                            Target="2labvnc-server.exe"
                            CloseMessage="yes"
                            RebootPrompt="no"
-                           Timeout="5">
+                           Timeout="15">
       (Installed AND (&amp;Server=2 OR REMOVE~="ALL")) OR (PREVIOUSFOUND AND &amp;Server=3)
     </util:CloseApplication>
     <?endif?>

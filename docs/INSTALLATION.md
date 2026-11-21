@@ -81,6 +81,8 @@ Earlier versions use an incompatible protocol. See the [encryption guide](ENCRYP
 
 Uninstall **2LabVnc** from **Programs and Features**. The installer stops and
 removes the `2LabVncServer` Windows service before deleting the Server files.
+Setup asks the Server tray to exit and allows up to 15 seconds for it
+to release the executable before Windows Installer checks for files in use.
 
 If Windows Installer reports that files are in use, cancel the uninstall.
 From **2LabVnc Server (Service Mode)** in the Start menu, run

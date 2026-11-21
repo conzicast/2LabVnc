@@ -63,8 +63,7 @@ ControlTrayIcon::ControlTrayIcon(ControlProxy *serverControl,
 : NotifyIcon(false),
   m_serverControl(serverControl), m_notificator(notificator),
   m_appControl(appControl),
-  m_inWindowProc(false),
-  m_termination(false)
+  m_inWindowProc(false)
 {
   m_iconWorking = new Icon(loadTrayIcon(IDI_CONNECTED));
   m_iconIdle = new Icon(loadTrayIcon(IDI_IDLE));
@@ -113,13 +112,15 @@ ControlTrayIcon::~ControlTrayIcon()
 LRESULT ControlTrayIcon::windowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam,
                                     bool *useDefWindowProc)
 {
-  if (m_inWindowProc) {
-    // This call is recursive, do not do any real work.
-    *useDefWindowProc = true;
+  if (uMsg == WM_CLOSE || (uMsg == WM_ENDSESSION && wParam != FALSE)) {
+    // Closing the notification window alone leaves the tray process running.
+    m_appControl->shutdown();
+    *useDefWindowProc = false;
     return 0;
   }
-  if (m_termination) {
-    m_endEvent.notify();
+
+  if (m_inWindowProc) {
+    // This call is recursive, do not do any real work.
     *useDefWindowProc = true;
     return 0;
   }
@@ -366,16 +367,4 @@ void ControlTrayIcon::setNotConnectedState()
 {
   setIcon(m_iconDisabled);
   setText(StringTable::getString(IDS_CONTROL_CLIENT_NOT_CONNECTED));
-}
-
-void ControlTrayIcon::terminate()
-{
-  m_termination = true;
-  // Forcing window message
-  PostMessage(getWindow(), WM_USER + 1, 0, 0);
-}
-
-void ControlTrayIcon::waitForTermination()
-{
-  m_endEvent.waitForEvent();
 }

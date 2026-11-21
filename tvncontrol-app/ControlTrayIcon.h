@@ -29,7 +29,6 @@
 #include "gui/WindowProcHolder.h"
 #include "gui/drawing/Icon.h"
 
-#include "thread/Thread.h"
 #include "thread/LocalMutex.h"
 
 #include "util/Command.h"
@@ -71,15 +70,6 @@ public:
    * TightVNC server is lost.
    */
   void syncStatusWithServer();
-
-  // Terminates all function callings and then notifying to the
-  // function waitForTermination() to continue.
-  void terminate();
-
-  // Wait termination of using a function by windows (e.g. windowProc) and then
-  // continue. Don't use this function from thread which call the windowProc()
-  // function.
-  void waitForTermination();
 
 protected:
   /**
@@ -150,8 +140,6 @@ protected:
   // and is used to prevent from executing that function recursively.
   bool m_inWindowProc;
 
-  WindowsEvent m_endEvent;
-  bool m_termination;
 };
 
 #endif
