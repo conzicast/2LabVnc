@@ -46,9 +46,9 @@ The internal service name is `2LabVncServer` and its display name is
 
 ## Notification area and Start menu
 
-Interactive setup starts the notification area icon on the signed-in
-desktop that launched setup, including a Remote Desktop session. The
-icon starts after the Server service.
+When you click **Finish**, interactive setup opens the Server notification
+area icon on the Windows desktop running the wizard, including a Remote
+Desktop session. This uses the same command as the Start menu shortcut.
 The service also starts the icon for users already signed in, and the
 icon starts at subsequent sign-ins. Windows may place it in the hidden icons area.
 The tray retries registration if Windows Explorer is still starting.

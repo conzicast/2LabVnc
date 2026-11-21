@@ -158,7 +158,7 @@ void ControlTrayIcon::onRightButtonUp()
 
   SetMenuDefaultItem(hMenu, ID_CONFIGURATION, FALSE);
 
-  if (m_appControl->m_slaveModeEnabled) {
+  if (m_appControl->isAutomaticTray()) {
     RemoveMenu(hMenu, ID_CLOSE_CONTROL_INTERFACE, MF_BYCOMMAND);
   }
 

@@ -22,7 +22,6 @@
 //-------------------------------------------------------------------------
 //
 
-#include "win-system/Process.h"
 #include "win-system/RegistryKey.h"
 #include "MsiProperties.h"
 #include "util/AnsiStringStorage.h"
@@ -34,7 +33,6 @@
 #include <msiquery.h>
 #include <shlwapi.h>
 #include <algorithm>
-#include <cstdlib>
 //#include <wcautil.h>
 
 const TCHAR SAS_REG_ENTRY[] = _T("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System");
@@ -127,39 +125,6 @@ UINT __stdcall RemoveUserServerCredentials(MSIHANDLE install)
   }
   return reportCredentialRemoval(install, result,
     _T("Setup could not delete the saved 2LabVnc application passwords and identity."));
-}
-
-UINT __stdcall LaunchTrayInInstallerSession(MSIHANDLE install)
-{
-  try {
-    StringStorage data;
-    MsiProperties(install).getString(_T("CustomActionData"), &data);
-    const TCHAR *value = data.getString();
-    TCHAR *separator = 0;
-    const DWORD clientPid = _tcstoul(value, &separator, 10);
-    DWORD sessionId = 0;
-    // Windows Installer runs this action in session 0. Follow the MSI
-    // client PID to reach the desktop that launched setup, including RDP.
-    if (*value < _T('0') || *value > _T('9') || clientPid == 0 ||
-        *separator != _T('|') || separator[1] == 0 ||
-        !ProcessIdToSessionId(clientPid, &sessionId) || sessionId == 0) {
-      sendInstallerMessage(install, INSTALLMESSAGE_INFO,
-                           _T("2LabVnc tray: no interactive installer session found."));
-      return ERROR_INSTALL_FAILURE;
-    }
-
-    const DWORD error = Process::startAsSessionUser(
-      sessionId, separator + 1, _T("-controlservice -slave"));
-    StringStorage message;
-    message.format(_T("2LabVnc tray: launch in installer session %lu returned Windows error %lu."),
-                   sessionId, error);
-    sendInstallerMessage(install, INSTALLMESSAGE_INFO, message.getString());
-    return error == ERROR_SUCCESS ? ERROR_SUCCESS : ERROR_INSTALL_FAILURE;
-  } catch (...) {
-    sendInstallerMessage(install, INSTALLMESSAGE_INFO,
-                         _T("2LabVnc tray: could not process installer session data."));
-    return ERROR_INSTALL_FAILURE;
-  }
 }
 
 // FIXME: Code duplication: see the ControlApplication class.

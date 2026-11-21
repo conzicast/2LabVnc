@@ -92,21 +92,18 @@ public:
 
 protected:
   /**
-   * Connect to the control interface of the server. If both -controlservice
-   * and -slave keys were specified, this function makes several tries to
-   * connect, with a pause between tries. That should recover the case when
-   * the control interface starts before the service is fully started.
+   * Connect to the control interface of the server. The tray can retry while
+   * the service finishes starting.
    *
    * @param controlService true if -controlservice was specified in the
    *   command line, false otherwise. This flag is used to determine the name
    *   of the pipe to connect to, and affects error handling on connection
    *   failures (together with the slave flag).
-   * @param slave true if -slave option was specified in the command line,
-   *   false otherwise. This flag affects error handling on connection
-   *   failures (together with the connectService flag).
+   * @param retry true to retry a failed connection before giving up.
    * @throws Exception on errors.
    */
-  void connect(bool controlService, bool slave) throw(Exception);
+  void connect(bool controlService, bool retry) throw(Exception);
+  bool isAutomaticTray() const;
 
   /**
    * Inherited from Thread class.
@@ -188,6 +185,7 @@ protected:
    * If application is in slave mode.
    */
   bool m_slaveModeEnabled;
+  HANDLE m_showServiceTrayEvent;
   /**
    * Icon need to known if tvncontrol runs in slave mode
    * to modify menu.

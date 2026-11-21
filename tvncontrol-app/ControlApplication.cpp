@@ -24,7 +24,6 @@
 
 #include "ControlApplication.h"
 #include "ControlTrayIcon.h"
-#include "ControlTrayIcon.h"
 #include "ControlPipeName.h"
 #include "ControlCommand.h"
 #include "ReloadConfigCommand.h"
@@ -66,6 +65,12 @@
 #include "util/AnsiStringStorage.h"
 #include "tvnserver-app/NamingDefs.h"
 #include <algorithm>
+#include <memory>
+
+namespace
+{
+  const TCHAR SHOW_SERVICE_TRAY_EVENT[] = _T("Local\\2LabVncServiceTrayShow");
+}
 
 ControlApplication::ControlApplication(HINSTANCE hinst,
                                        const TCHAR *windowClassName,
@@ -76,6 +81,7 @@ ControlApplication::ControlApplication(HINSTANCE hinst,
    m_transport(0),
    m_trayIcon(0),
    m_slaveModeEnabled(false),
+   m_showServiceTrayEvent(NULL),
    m_configurator(false),
    m_log(0)
 {
@@ -88,6 +94,9 @@ ControlApplication::ControlApplication(HINSTANCE hinst,
 
 ControlApplication::~ControlApplication()
 {
+  if (m_showServiceTrayEvent != NULL) {
+    CloseHandle(m_showServiceTrayEvent);
+  }
   try {
     WindowsSocket::cleanup();
   } catch (...) { }
@@ -146,15 +155,19 @@ int ControlApplication::run()
 
   int retCode = 0;
 
-  // If we are in the "-controlservice -slave" mode, make sure there are no
-  // other "service slaves" in this session, exit if there is one already.
-
-  GlobalMutex *appGlobalMutex = 0;
-
-  if (cmdLineParser.hasControlServiceFlag() && cmdLineParser.isSlave()) {
+  const bool serviceTray = cmdLineParser.hasControlServiceFlag() && !cmdLineParser.isCommandSpecified();
+  m_slaveModeEnabled = cmdLineParser.isSlave();
+  std::unique_ptr<GlobalMutex> trayInstance;
+  if (serviceTray) {
+    // The setup and Start menu request the same visible tray. If the service
+    // already started a tray in this session, the request goes to that instance.
+    m_showServiceTrayEvent = CreateEvent(NULL, TRUE, FALSE, SHOW_SERVICE_TRAY_EVENT);
+    if (!m_slaveModeEnabled && m_showServiceTrayEvent != NULL) {
+      SetEvent(m_showServiceTrayEvent);
+    }
     try {
-      appGlobalMutex = new GlobalMutex(
-        ServerApplicationNames::CONTROL_APP_INSTANCE_MUTEX_NAME, false, true);
+      trayInstance.reset(new GlobalMutex(ServerApplicationNames::CONTROL_APP_INSTANCE_MUTEX_NAME,
+                                         false, true));
     } catch (...) {
       return 1;
     }
@@ -164,7 +177,7 @@ int ControlApplication::run()
 
   // Connect to server.
   try {
-    connect(cmdLineParser.hasControlServiceFlag(), cmdLineParser.isSlave());
+    connect(cmdLineParser.hasControlServiceFlag(), serviceTray || m_slaveModeEnabled);
   } catch (Exception &) {
     if (!cmdLineParser.isSlave() && !cmdLineParser.hasCheckServicePasswords()) {
       const TCHAR *msg = StringTable::getString(IDS_FAILED_TO_CONNECT_TO_CONTROL_SERVER);
@@ -219,8 +232,7 @@ int ControlApplication::run()
   } else {
     bool showIcon = true;
 
-    if (cmdLineParser.isSlave()) {
-      m_slaveModeEnabled = true;
+    if (isAutomaticTray()) {
       try {
         try {
           showIcon = m_serverControl->getShowTrayIconFlag();
@@ -238,20 +250,22 @@ int ControlApplication::run()
     retCode = runControlInterface(showIcon);
   }
 
-  if (appGlobalMutex != 0) {
-    delete appGlobalMutex;
-  }
-
   return retCode;
 }
 
-void ControlApplication::connect(bool controlService, bool slave)
+bool ControlApplication::isAutomaticTray() const
+{
+  return m_slaveModeEnabled && (m_showServiceTrayEvent == NULL ||
+    WaitForSingleObject(m_showServiceTrayEvent, 0) != WAIT_OBJECT_0);
+}
+
+void ControlApplication::connect(bool controlService, bool retry)
 {
   // Determine the name of pipe to connect to.
   StringStorage pipeName;
   ControlPipeName::createPipeName(controlService, &pipeName, &m_log);
 
-  int numTriesRemaining = slave ? 10 : 1;
+  int numTriesRemaining = retry ? 10 : 1;
   int msDelayBetweenTries = 2000;
 
   while (numTriesRemaining-- > 0) {
@@ -294,7 +308,7 @@ void ControlApplication::execute()
     while (!isTerminating()) {
       Thread::sleep(500);
       // If we need to show or hide icon.
-      bool showIcon = m_serverControl->getShowTrayIconFlag() || !m_slaveModeEnabled;
+      const bool showIcon = m_serverControl->getShowTrayIconFlag() || !isAutomaticTray();
 
       // Check if we need to show icon.
       if (showIcon && !m_trayIcon->isVisible()) {

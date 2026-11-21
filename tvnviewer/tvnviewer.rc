@@ -425,8 +425,8 @@ IDI_FOLDER_ICON         ICON                    "res\\ftdir.ico"
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,2,9,0
- PRODUCTVERSION 1,2,9,0
+ FILEVERSION 1,2,10,0
+ PRODUCTVERSION 1,2,10,0
  FILEFLAGSMASK 0x17L
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -443,12 +443,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "2lab snc"
             VALUE "FileDescription", "2LabVnc Viewer"
-            VALUE "FileVersion", "1, 2, 9, 0"
+            VALUE "FileVersion", "1, 2, 10, 0"
             VALUE "InternalName", "2labvnc-viewer"
             VALUE "LegalCopyright", "Copyright (C) 2026 2lab snc; based on TightVNC 2.x"
             VALUE "OriginalFilename", "2labvnc-viewer.exe"
             VALUE "ProductName", "2LabVnc"
-            VALUE "ProductVersion", "1, 2, 9, 0"
+            VALUE "ProductVersion", "1, 2, 10, 0"
         END
     END
     BLOCK "VarFileInfo"

@@ -3,7 +3,6 @@
 EXPORTS
 
 AllowSas
-LaunchTrayInInstallerSession
 ConfirmRemovalOfServerCredentials
 RemoveServerCredentials
 RemoveUserServerCredentials

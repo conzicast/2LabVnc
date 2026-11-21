@@ -18,6 +18,11 @@
         REGISTER_AS_SERVICE = 1 AND <![CDATA[UILevel = 5 AND IS_SILENT <> 1]]>
         AND <![CDATA[&Server=3 AND NOT (!Server=3)]]> AND NOT REMOVE
       </Publish>
+      <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction"
+               Value="LaunchServerTray" Order="2">
+        REGISTER_AS_SERVICE = 1 AND <![CDATA[UILevel = 5 AND IS_SILENT <> 1]]>
+        AND <![CDATA[&Server=3]]> AND NOT REMOVE
+      </Publish>
       <?endif?>
 
       <!-- Skip the License Agreement dialog if it's needed. -->

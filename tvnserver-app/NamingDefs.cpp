@@ -56,7 +56,7 @@ const TCHAR ServiceNames::SERVICE_NAME_TO_DISPLAY[] = _T("2LabVnc Server");
 const TCHAR ServerApplicationNames::SERVER_INSTANCE_MUTEX_NAME[] =
   _T("2LabVncServerApplication");
 const TCHAR ServerApplicationNames::CONTROL_APP_INSTANCE_MUTEX_NAME[] =
-  _T("2LabVncServerServiceControlSlave");
+  _T("2LabVncServerServiceTray");
 const TCHAR ServerApplicationNames::FOR_SERVICE_CONTROL_APP_PIPE_NAME[] =
   _T("2LabVnc_Service_Control");
 const TCHAR ServerApplicationNames::FOR_APP_CONTROL_APP_SERVICE_PIPE_NAME[] =
