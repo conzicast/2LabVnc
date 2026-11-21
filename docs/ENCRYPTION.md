@@ -65,6 +65,9 @@ When the interactive service installation succeeds, click **Finish** to
 open the Server password setup and view its fingerprint. If you cancel
 the initial setup, set the pair in Server settings and enable incoming connections.
 The Server refuses sessions until a valid pair is configured.
+The Server notification-area icon shows whether the listener has a usable
+pair of encrypted access passwords. This status also applies in Remote
+Desktop sessions.
 
 ## Connect from the Viewer
 

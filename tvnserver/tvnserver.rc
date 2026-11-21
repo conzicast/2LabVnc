@@ -760,7 +760,7 @@ BEGIN
                             "Polling interval must be a number between 30 and 4294967295."
     IDS_INVALID_INACTIVITY_TIMEOUT 
                             "Inactivity timeout must be a number between 1 and 4294967295."
-    IDS_NO_PASSWORDS_SET    "no passwords set"
+    IDS_NO_PASSWORDS_SET    "encrypted access passwords not configured"
     IDS_INVALID_QUERY_TIMEOUT 
                             "Query timeout must be a number between 1 and 4294967295."
     IDS_INVALID_VIDEO_RECOGNITION_INTERVAL 
@@ -775,7 +775,6 @@ BEGIN
     IDS_1073_ERROR_DESCRIPTION "Service is already registered"
     IDS_SHUTDOWN_NOTIFICATION_FORMAT 
                             "This will disconnect all clients and they will not be able to reconnect until the 2LabVnc Server is restarted.\n\nAre you sure you want to shutdown the %s?"
-    IDS_NO_AUTH_STATUS      " (no auth!)"
     IDS_LICENSING_INFO      "Licensing Terms: GNU General Public License version 2"
     IDS_FAILED_TO_RELOAD_SERVICE_ON_CHECK_PASS 
                             "Unable to update 2LabVnc service with the new configuration with reason: %s."
