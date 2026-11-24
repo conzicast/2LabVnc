@@ -78,8 +78,12 @@ Desktop sessions.
    select **I verified the fingerprint**.
 4. Enter the password for your role in the single **2LabVnc Password** prompt.
    After secure authentication, the Viewer remembers the fingerprint for
-   the address and port of a direct connection. It blocks a changed identity
-   before asking for the password. Reverse connections require a fresh comparison.
+   the address and port of a direct connection. If the fingerprint changes,
+   the Viewer shows both the saved and new values before asking for the
+   password. Compare the new fingerprint with the one supplied through a
+   trusted channel. Select **I verified the new fingerprint** only if they
+   match. The Viewer replaces the saved fingerprint after successful secure
+   authentication. Reverse connections require a fresh comparison.
 5. When the first remote image arrives, the Viewer briefly displays
    **Encryption enabled** with a green check mark. The notice lasts two seconds.
 
@@ -111,10 +115,8 @@ The Server stores the salt, iteration count, both PBKDF2 verifiers, and the
 private identity key in a Windows DPAPI blob protected at machine scope.
 Changing passwords preserves the existing identity. To rotate the identity,
 clear both passwords, apply, then set and apply a fresh pair.
-After verifying an intentional key change with the administrator, remove
-the corresponding `ServerFingerprint.<host>.<port>` value from
-`HKEY_CURRENT_USER\Software\2Lab\2LabVnc\Viewer\Settings` on the Viewer
-and verify the new fingerprint at the next connection.
+After an intentional key change, give Viewer users the new fingerprint
+through a trusted channel so they can confirm it at their next connection.
 The Viewer keeps the password
 in memory for the current connection and clears it after channel activation.
 

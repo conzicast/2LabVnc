@@ -41,8 +41,10 @@ namespace
   class VerifyServerDialog : public BaseDialog
   {
   public:
-    VerifyServerDialog(const StringStorage &endpoint, const StringStorage &fingerprint)
-      : BaseDialog(IDD_VERIFY_SERVER_IDENTITY), m_endpoint(endpoint), m_fingerprint(fingerprint) {}
+    VerifyServerDialog(const StringStorage &endpoint, const StringStorage &fingerprint,
+                       const StringStorage *savedFingerprint)
+      : BaseDialog(savedFingerprint ? IDD_REPLACE_SERVER_IDENTITY : IDD_VERIFY_SERVER_IDENTITY),
+        m_endpoint(endpoint), m_fingerprint(fingerprint), m_savedFingerprint(savedFingerprint) {}
 
   protected:
     BOOL onInitDialog()
@@ -50,6 +52,13 @@ namespace
       HWND window = m_ctrlThis.getWindow();
       SetDlgItemText(window, IDC_SERVER_ENDPOINT, m_endpoint.getString());
       SetDlgItemText(window, IDC_SERVER_FINGERPRINT, m_fingerprint.getString());
+      if (m_savedFingerprint) {
+        UINT8 saved[SecureServerCredentials::FINGERPRINT_SIZE];
+        const TCHAR *text = m_savedFingerprint->getString();
+        SetDlgItemText(window, IDC_SAVED_SERVER_FINGERPRINT,
+                       SecureServerCredentials::parseFingerprint(text, saved)
+                         ? text : _T("(Invalid saved fingerprint)"));
+      }
       SetFocus(GetDlgItem(window, IDCANCEL));
       return FALSE;
     }
@@ -66,24 +75,20 @@ namespace
   private:
     StringStorage m_endpoint;
     StringStorage m_fingerprint;
+    const StringStorage *m_savedFingerprint;
   };
 
-  bool checkSavedFingerprint(const StringStorage &setting, const UINT8 *fingerprint)
+  bool readSavedFingerprint(const StringStorage &setting, StringStorage *saved)
   {
-    StringStorage saved;
-    if (setting.isEmpty() ||
-        !ViewerSettingsManager::getInstance()->getString(setting.getString(), &saved)) {
-      return false;
-    }
+    return !setting.isEmpty() &&
+      ViewerSettingsManager::getInstance()->getString(setting.getString(), saved);
+  }
 
+  bool matchesFingerprint(const StringStorage &saved, const UINT8 *fingerprint)
+  {
     UINT8 expected[SecureServerCredentials::FINGERPRINT_SIZE];
-    if (!SecureServerCredentials::parseFingerprint(saved.getString(), expected) ||
-        memcmp(expected, fingerprint, sizeof(expected)) != 0) {
-      throw IOException(_T("The saved Server fingerprint does not match. ")
-                        _T("The connection was blocked before password authentication. ")
-                        _T("Verify the change with your administrator."));
-    }
-    return true;
+    return SecureServerCredentials::parseFingerprint(saved.getString(), expected) &&
+      memcmp(expected, fingerprint, sizeof(expected)) == 0;
   }
 }
 
@@ -192,8 +197,7 @@ void ViewerInstance::checkUnencryptedConnection()
 {
   AutoLock lock(&fingerprintSettingsLock);
   StringStorage saved;
-  if (!m_fingerprintSetting.isEmpty() &&
-      ViewerSettingsManager::getInstance()->getString(m_fingerprintSetting.getString(), &saved)) {
+  if (readSavedFingerprint(m_fingerprintSetting, &saved)) {
     throw IOException(_T("This address has a saved 2LabVnc fingerprint. ")
                       _T("The server no longer offers the expected encrypted connection. ")
                       _T("Verify the server with your administrator."));
@@ -202,16 +206,16 @@ void ViewerInstance::checkUnencryptedConnection()
 
 void ViewerInstance::requestPassword(const UINT8 *fingerprint, std::vector<UINT8> *password)
 {
-  bool alreadyTrusted;
   {
     AutoLock lock(&fingerprintSettingsLock);
-    alreadyTrusted = checkSavedFingerprint(m_fingerprintSetting, fingerprint);
+    m_hadSavedFingerprint = readSavedFingerprint(m_fingerprintSetting, &m_savedFingerprint);
   }
 
-  if (!alreadyTrusted) {
+  if (!m_hadSavedFingerprint || !matchesFingerprint(m_savedFingerprint, fingerprint)) {
     StringStorage text;
     SecureServerCredentials::formatFingerprint(fingerprint, &text);
-    VerifyServerDialog confirmation(m_serverEndpoint, text);
+    VerifyServerDialog confirmation(m_serverEndpoint, text,
+                                    m_hadSavedFingerprint ? &m_savedFingerprint : 0);
     if (confirmation.showModal() != IDOK) {
       throw AuthCanceledException();
     }
@@ -238,12 +242,21 @@ void ViewerInstance::onAuthenticated(const UINT8 *fingerprint)
     return; // Reverse connections have no stable server endpoint.
   }
   AutoLock lock(&fingerprintSettingsLock);
-  if (!checkSavedFingerprint(m_fingerprintSetting, fingerprint)) {
-    StringStorage text;
-    SecureServerCredentials::formatFingerprint(fingerprint, &text);
-    if (!ViewerSettingsManager::getInstance()->setString(m_fingerprintSetting.getString(),
-                                                         text.getString())) {
-      throw IOException(_T("The verified Server fingerprint could not be saved"));
-    }
+  StringStorage current;
+  const bool hasCurrent = readSavedFingerprint(m_fingerprintSetting, &current);
+  if (hasCurrent && matchesFingerprint(current, fingerprint)) {
+    return;
+  }
+  // Do not replace a pin changed by another connection while the dialog was open.
+  if (hasCurrent != m_hadSavedFingerprint ||
+      (hasCurrent && !current.isEqualTo(&m_savedFingerprint))) {
+    throw IOException(_T("The saved Server fingerprint changed during authentication. Reconnect to verify it."));
+  }
+
+  StringStorage text;
+  SecureServerCredentials::formatFingerprint(fingerprint, &text);
+  if (!ViewerSettingsManager::getInstance()->setString(m_fingerprintSetting.getString(),
+                                                       text.getString())) {
+    throw IOException(_T("The verified Server fingerprint could not be saved"));
   }
 }

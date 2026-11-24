@@ -62,6 +62,8 @@ private:
   void onAuthenticated(const UINT8 *fingerprint);
   StringStorage m_fingerprintSetting;
   StringStorage m_serverEndpoint;
+  StringStorage m_savedFingerprint;
+  bool m_hadSavedFingerprint = false;
 
 protected:
   ConnectionData m_condata;

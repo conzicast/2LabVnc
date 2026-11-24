@@ -52,7 +52,7 @@ still needs verification.
 6. Connect to the Server, compare the fingerprint shown by the Viewer, and
    confirm it before entering the password for the role you need. The Viewer
    remembers the verified fingerprint for subsequent direct connections and
-   blocks changed fingerprints.
+   requires explicit verification when the fingerprint changes.
    The Viewer shows an **Encryption enabled** notice for two seconds after
    the first remote image arrives. The Server can hide the notice.
 

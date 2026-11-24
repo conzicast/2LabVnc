@@ -163,6 +163,22 @@ BEGIN
     DEFPUSHBUTTON   "Cancel",IDCANCEL,256,86,56,15
 END
 
+IDD_REPLACE_SERVER_IDENTITY DIALOGEX 0, 0, 350, 162
+STYLE DS_SETFONT | DS_MODALFRAME | DS_SETFOREGROUND | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "2LabVnc - Server Fingerprint Changed"
+FONT 8, "Ms Shell Dlg 2", 0, 0, 0x0
+BEGIN
+    LTEXT           "Server:",IDC_STATIC,12,12,33,11
+    EDITTEXT        IDC_SERVER_ENDPOINT,48,10,290,15,ES_AUTOHSCROLL | ES_READONLY
+    LTEXT           "The Server fingerprint has changed. Compare the new SHA-256 fingerprint with the one supplied by your administrator through a trusted channel. Cancel if you cannot verify the change.",IDC_STATIC,12,31,326,26
+    LTEXT           "Saved SHA-256 fingerprint",IDC_STATIC,12,60,326,10
+    EDITTEXT        IDC_SAVED_SERVER_FINGERPRINT,12,72,326,15,ES_AUTOHSCROLL | ES_READONLY
+    LTEXT           "New SHA-256 fingerprint",IDC_STATIC,12,93,326,10
+    EDITTEXT        IDC_SERVER_FINGERPRINT,12,105,326,15,ES_AUTOHSCROLL | ES_READONLY
+    PUSHBUTTON      "I verified the new fingerprint",IDOK,120,135,148,16
+    DEFPUSHBUTTON   "Cancel",IDCANCEL,280,135,58,16
+END
+
 IDD_LOGINDIALOG DIALOGEX 0, 0, 284, 172
 STYLE DS_SETFONT | DS_MODALFRAME | DS_3DLOOK | DS_CENTER | WS_MINIMIZEBOX | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
 CAPTION "New 2LabVnc Connection"
@@ -425,8 +441,8 @@ IDI_FOLDER_ICON         ICON                    "res\\ftdir.ico"
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,2,10,0
- PRODUCTVERSION 1,2,10,0
+ FILEVERSION 1,2,11,0
+ PRODUCTVERSION 1,2,11,0
  FILEFLAGSMASK 0x17L
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -443,12 +459,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "2lab snc"
             VALUE "FileDescription", "2LabVnc Viewer"
-            VALUE "FileVersion", "1, 2, 10, 0"
+            VALUE "FileVersion", "1, 2, 11, 0"
             VALUE "InternalName", "2labvnc-viewer"
             VALUE "LegalCopyright", "Copyright (C) 2026 2lab snc; based on TightVNC 2.x"
             VALUE "OriginalFilename", "2labvnc-viewer.exe"
             VALUE "ProductName", "2LabVnc"
-            VALUE "ProductVersion", "1, 2, 10, 0"
+            VALUE "ProductVersion", "1, 2, 11, 0"
         END
     END
     BLOCK "VarFileInfo"

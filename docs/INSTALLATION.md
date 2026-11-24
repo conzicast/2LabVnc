@@ -71,7 +71,10 @@ start, stop, or remove the service.
    only if they match.
 5. Enter one password for the access level you want. After secure authentication,
    the Viewer remembers the identity by host and port for direct connections.
-   Reverse connections require confirmation each time.
+   If it changes, compare the new fingerprint with the value from your
+   administrator and select **I verified the new fingerprint** only if they
+   match. Successful authentication saves the update. Reverse connections
+   require confirmation each time.
 
 ## Upgrade from a version before 1.2.0
 
