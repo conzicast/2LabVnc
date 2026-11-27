@@ -28,6 +28,17 @@
 #include "util/StringStorage.h"
 #include "rfb/HostPath.h"
 
+class IniFileSettingsManager;
+
+struct FileTransferFolders
+{
+  StringStorage local;
+  StringStorage remote;
+
+  void load(IniFileSettingsManager &file);
+  bool save(IniFileSettingsManager &file) const;
+};
+
 class ConnectionData
 {
 public:
@@ -67,6 +78,8 @@ public:
 
   void setIncoming(bool isIncoming);
   bool isIncoming() const;
+  const FileTransferFolders &getInitialTransferFolders() const;
+  void loadTransferFolders(IniFileSettingsManager &file);
 
 protected:
   HostPath m_hostPath;
@@ -82,6 +95,7 @@ protected:
 
   // Saved password is crypted.
   StringStorage m_defaultPassword;
+  FileTransferFolders m_initialTransferFolders;
 };
 
 

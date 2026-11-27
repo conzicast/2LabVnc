@@ -76,6 +76,19 @@ start, stop, or remove the service.
    match. Successful authentication saves the update. Reverse connections
    require confirmation each time.
 
+## Save file transfer folders
+
+In the Viewer, open **File Transfer**. The window can be resized, minimized,
+and maximized. **Remember folders** is selected by default and keeps both
+folders when you close and reopen File Transfer during the same connection.
+Clear the checkbox to reopen the window at the default locations.
+
+To reuse the folders in a later connection, click the **Save** icon in the
+transfer window and save the `.vnc` profile. When you reopen that profile
+with 2LabVnc Viewer, File Transfer starts in the saved folders. You can open
+the profile with Windows **Open with** or pass it to the Viewer with
+`-optionsfile`.
+
 ## Upgrade from a version before 1.2.0
 
 Arrange local access to the Server first. Update the Server and Viewer together,

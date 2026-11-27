@@ -29,6 +29,7 @@
 #include "gui/Control.h"
 #include "gui/TextBox.h"
 #include "gui/ComboBox.h"
+#include "gui/CheckBox.h"
 #include "gui/ImagedButton.h"
 #include "gui/ProgressBar.h"
 
@@ -37,6 +38,7 @@
 #include "io-lib/IOException.h"
 
 #include "FileInfoListView.h"
+#include "ConnectionData.h"
 #include "FileExistDialog.h"
 #include "thread/Thread.h"
 #include "ft-client-lib/FileTransferInterface.h"
@@ -49,8 +51,15 @@ class FileTransferMainDialog : public BaseDialog,
                                public FileTransferInterface
 {
 public:
-  FileTransferMainDialog(FileTransferCore *core);
+  struct SessionFolders
+  {
+    bool remember = true;
+    FileTransferFolders paths;
+  };
+
+  FileTransferMainDialog(FileTransferCore *core, SessionFolders &folders);
   virtual ~FileTransferMainDialog();
+  void getCurrentFolders(FileTransferFolders *folders);
 
   //
   // Kill main dialog.
@@ -151,6 +160,20 @@ protected:
   void insertMessageIntoComboBox(const TCHAR *message);
 
 private:
+  void initSaveButton();
+  void initLayout();
+  void resizeControls();
+
+  struct LayoutControl
+  {
+    HWND window;
+    RECT bounds;
+    int leftAnchor, rightAnchor, topAnchor, bottomAnchor;
+  };
+
+  RECT m_initialClient = {};
+  SIZE m_minimumWindow = {};
+  std::vector<LayoutControl> m_layoutControls;
 
   //
   // Enables or disables all controls from m_controlsToBlock list
@@ -182,7 +205,7 @@ private:
   // to local file list view
   //
 
-  void tryListLocalFolder(const TCHAR *pathToFile);
+  bool tryListLocalFolder(const TCHAR *pathToFile);
 
   //
   // Sends file list request to server and shows result
@@ -237,6 +260,9 @@ protected:
   Control m_downloadButton;
 
   Control m_cancelButton;
+  CheckBox m_rememberFoldersCheckBox;
+  SessionFolders &m_sessionFolders;
+  bool m_restoringRemoteFolder = false;
 
   //
   // Progress bar

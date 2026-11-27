@@ -26,9 +26,37 @@
 #include <sstream>
 
 #include "ConnectionData.h"
+#include "config-lib/IniFileSettingsManager.h"
 #include "util/AnsiStringStorage.h"
 #include "util/VncPassCrypt.h"
 #include "viewer-core/VncAuthentication.h"
+
+void FileTransferFolders::load(IniFileSettingsManager &file)
+{
+  file.setApplicationName(_T("file-transfer"));
+  file.getString(_T("local-folder"), &local);
+  file.getString(_T("remote-folder"), &remote);
+
+  // Only restore drive-based local paths, as used by the transfer browser.
+  const TCHAR *path = local.getString();
+  const size_t length = local.getLength();
+  if (length < 2 ||
+      !((path[0] >= _T('A') && path[0] <= _T('Z')) ||
+        (path[0] >= _T('a') && path[0] <= _T('z'))) ||
+      path[1] != _T(':') || (length > 2 && path[2] != _T('\\'))) {
+    local.setString(_T(""));
+  }
+  if (!remote.isEmpty() && remote.getString()[0] != _T('/')) {
+    remote.setString(_T(""));
+  }
+}
+
+bool FileTransferFolders::save(IniFileSettingsManager &file) const
+{
+  file.setApplicationName(_T("file-transfer"));
+  return file.setString(_T("local-folder"), local.getString()) &&
+         file.setString(_T("remote-folder"), remote.getString());
+}
 
 ConnectionData::ConnectionData()
 : m_isEmpty(true),
@@ -40,7 +68,8 @@ ConnectionData::ConnectionData()
 ConnectionData::ConnectionData(const ConnectionData &connectionData)
 : m_isEmpty(connectionData.m_isEmpty),
   m_isSetPassword(connectionData.m_isSetPassword),
-  m_isIncoming(connectionData.m_isIncoming)
+  m_isIncoming(connectionData.m_isIncoming),
+  m_initialTransferFolders(connectionData.m_initialTransferFolders)
 {
   if (!connectionData.isEmpty()) {
     m_hostPath.set(connectionData.m_hostPath.get());
@@ -48,6 +77,16 @@ ConnectionData::ConnectionData(const ConnectionData &connectionData)
   if (m_isSetPassword) {
     m_defaultPassword = connectionData.m_defaultPassword;
   }
+}
+
+const FileTransferFolders &ConnectionData::getInitialTransferFolders() const
+{
+  return m_initialTransferFolders;
+}
+
+void ConnectionData::loadTransferFolders(IniFileSettingsManager &file)
+{
+  m_initialTransferFolders.load(file);
 }
 
 void ConnectionData::setIncoming(bool isIncoming)

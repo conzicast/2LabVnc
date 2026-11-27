@@ -139,6 +139,7 @@ protected:
   RemoteViewerCore *m_viewerCore;
   FileTransferCapability *m_fileTransfer;
   FileTransferMainDialog *m_ftDialog;
+  FileTransferMainDialog::SessionFolders m_fileTransferFolders;
   DesktopWindow m_dsktWnd;
   StringStorage m_strToolTip;
   ToolBar m_toolbar;

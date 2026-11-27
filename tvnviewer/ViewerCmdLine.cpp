@@ -64,6 +64,25 @@ const TCHAR ViewerCmdLine::TIGHT[] = _T("tight");
 const TCHAR ViewerCmdLine::RRE[] = _T("rre");
 const TCHAR ViewerCmdLine::ZRLE[] = _T("zrle");
 
+namespace
+{
+  bool isVncProfile(const StringStorage &argument)
+  {
+    const size_t length = argument.getLength();
+    if (length < 4 || _tcsicmp(argument.getString() + length - 4, _T(".vnc")) != 0) {
+      return false;
+    }
+    // Explorer's Open with command can pass the filename as a bare argument.
+    // A plain host name ending in .vnc is still accepted when no such file exists.
+    const TCHAR *path = argument.getString();
+    if (_tcspbrk(path, _T("\\/:"))) {
+      return true;
+    }
+    const DWORD attributes = GetFileAttributes(path);
+    return attributes != INVALID_FILE_ATTRIBUTES && !(attributes & FILE_ATTRIBUTE_DIRECTORY);
+  }
+}
+
 ViewerCmdLine::ViewerCmdLine(ConnectionData *conData,
                              ConnectionConfig *conConf,
                              ViewerConfig *config,
@@ -147,8 +166,12 @@ void ViewerCmdLine::parse()
     }
   }
 
+  StringStorage argument;
+  m_wpcl.getArgument(1, &argument);
   if (isPresent(ViewerCmdLine::OPTIONS_FILE)) {
-    parseOptionsFile();
+    parseOptionsFile(m_options[OPTIONS_FILE]);
+  } else if (isVncProfile(argument)) {
+    parseOptionsFile(argument);
   } else if (isPresent(ViewerCmdLine::LISTEN)) {
       *m_isListening = true;
   } else if (isPresent(ViewerCmdLine::LOG_PATH)) {
@@ -205,19 +228,18 @@ bool ViewerCmdLine::isPresent(const TCHAR *keyName)
   return m_options.find(keyName) != m_options.end();
 }
 
-void ViewerCmdLine::parseOptionsFile()
+void ViewerCmdLine::parseOptionsFile(const StringStorage &pathToIniFile)
 {
-  StringStorage pathToIniFile = m_options[OPTIONS_FILE];
-  if (pathToIniFile.findChar(_T('\\')) == -1) {
-    StringStorage newPathToIniFile;
-    newPathToIniFile.format(_T(".\\%s"), pathToIniFile.getString());
-    pathToIniFile = newPathToIniFile;
+  TCHAR absolutePath[MAX_PATH];
+  const DWORD length = GetFullPathName(pathToIniFile.getString(), MAX_PATH, absolutePath, NULL);
+  if (length == 0 || length >= MAX_PATH) {
+    throw CommandLineFormatException(StringTable::getString(IDS_ERROR_PARSE_OPTIONS_FILE));
   }
-  IniFileSettingsManager sm(pathToIniFile.getString());
+  IniFileSettingsManager sm(absolutePath);
   sm.setApplicationName(_T("connection"));
 
   StringStorage host;
-  if (!sm.getString(_T("host"), &host)) {
+  if (!sm.getString(_T("host"), &host) || host.isEmpty()) {
     throw CommandLineFormatException(StringTable::getString(IDS_ERROR_PARSE_OPTIONS_FILE));
   }
   StringStorage port;
@@ -227,6 +249,10 @@ void ViewerCmdLine::parseOptionsFile()
     m_conData->setHost(&hostString);
   } else {
     m_conData->setHost(&host);
+  }
+  const int connectionPort = m_conData->getPort();
+  if (connectionPort < 1 || connectionPort > 65535) {
+    throw CommandLineFormatException(_T("The .vnc file has an invalid server address or port."));
   }
 
   StringStorage password;
@@ -239,6 +265,7 @@ void ViewerCmdLine::parseOptionsFile()
   
   sm.setApplicationName(_T("options"));
   m_conConf->loadFromStorage(&sm);
+  m_conData->loadTransferFolders(sm);
 }
 
 void ViewerCmdLine::parsePassword()

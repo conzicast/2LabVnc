@@ -74,7 +74,7 @@ BEGIN
 END
 
 ftclient_mainDialog DIALOGEX 0, 0, 503, 320
-STYLE DS_SETFONT | DS_MODALFRAME | DS_3DLOOK | DS_CENTER | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+STYLE DS_SETFONT | DS_3DLOOK | DS_CENTER | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_CLIPCHILDREN
 CAPTION "2LabVnc File Transfer"
 FONT 8, "Ms Shell Dlg 2", 0, 0, 0x0
 BEGIN
@@ -87,7 +87,9 @@ BEGIN
     PUSHBUTTON      "Refresh",IDC_REFRESH_LOCAL_BUTTON,175,253,50,15
     PUSHBUTTON      ">>",IDC_UPLOAD_BUTTON,235,111,33,22,WS_GROUP
     PUSHBUTTON      "<<",IDC_DOWNLOAD_BUTTON,235,138,33,22
-    LTEXT           "Remote Computer (Server)",IDC_STATIC,272,4,226,10
+    LTEXT           "Remote Computer (Server)",IDC_REMOTE_TRANSFER_LABEL,272,4,116,10
+    CONTROL         "Remember folders",IDC_REMEMBER_TRANSFER_FOLDERS,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,392,3,83,12
+    CONTROL         "",IDC_TRANSFER_SAVE_TOOLBAR,"ToolbarWindow32",CCS_NORESIZE | CCS_NOPARENTALIGN | TBSTYLE_FLAT | TBSTYLE_TOOLTIPS | WS_TABSTOP,478,0,20,16
     EDITTEXT        IDC_REMOTE_CURRENT_FOLDER_EDIT,272,16,226,12,ES_AUTOHSCROLL | ES_READONLY | NOT WS_TABSTOP
     CONTROL         "",IDC_REMOTE_FILE_LIST,"SysListView32",LVS_REPORT | LVS_SHOWSELALWAYS | LVS_ALIGNLEFT | WS_BORDER | WS_TABSTOP,272,34,226,215
     PUSHBUTTON      "Rename",IDC_RENAME_REMOTE_BUTTON,277,253,50,15,WS_GROUP
@@ -441,8 +443,8 @@ IDI_FOLDER_ICON         ICON                    "res\\ftdir.ico"
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,2,11,0
- PRODUCTVERSION 1,2,11,0
+ FILEVERSION 1,2,12,0
+ PRODUCTVERSION 1,2,12,0
  FILEFLAGSMASK 0x17L
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -459,12 +461,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "2lab snc"
             VALUE "FileDescription", "2LabVnc Viewer"
-            VALUE "FileVersion", "1, 2, 11, 0"
+            VALUE "FileVersion", "1, 2, 12, 0"
             VALUE "InternalName", "2labvnc-viewer"
             VALUE "LegalCopyright", "Copyright (C) 2026 2lab snc; based on TightVNC 2.x"
             VALUE "OriginalFilename", "2labvnc-viewer.exe"
             VALUE "ProductName", "2LabVnc"
-            VALUE "ProductVersion", "1, 2, 11, 0"
+            VALUE "ProductVersion", "1, 2, 12, 0"
         END
     END
     BLOCK "VarFileInfo"

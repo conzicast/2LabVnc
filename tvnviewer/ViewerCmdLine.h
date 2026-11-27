@@ -105,7 +105,7 @@ private:
                       size_t lenCmdLineOption);
 
   bool isHelpPresent();
-  void parseOptionsFile();
+  void parseOptionsFile(const StringStorage &pathToIniFile);
   void parsePassword();
   void parseEncoding();
   void parseMouseShape();

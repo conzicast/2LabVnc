@@ -32,6 +32,30 @@
 #include "TvnViewer.h"
 #include "ViewerWindow.h"
 
+namespace
+{
+  bool createSessionTempFile(const TCHAR *destination, TCHAR *temporary)
+  {
+    TCHAR directory[MAX_PATH];
+    TCHAR *basename = 0;
+    const DWORD length = GetFullPathName(destination, MAX_PATH, directory, &basename);
+    if (length == 0 || length >= MAX_PATH || !basename) return false;
+    *basename = _T('\0');
+    if (!GetTempFileName(directory, _T("2LV"), 0, temporary)) return false;
+
+    // Win32 profile APIs preserve Unicode values in files with a UTF-16 BOM.
+    HANDLE file = CreateFile(temporary, GENERIC_WRITE, 0, NULL, OPEN_EXISTING,
+                             FILE_ATTRIBUTE_NORMAL, NULL);
+    if (file == INVALID_HANDLE_VALUE) return false;
+    const BYTE bom[] = { 0xff, 0xfe };
+    DWORD written;
+    const bool success = WriteFile(file, bom, sizeof(bom), &written, NULL) &&
+                         written == sizeof(bom);
+    CloseHandle(file);
+    return success;
+  }
+}
+
 ViewerWindow::ViewerWindow(WindowsApplication *application,
                            ConnectionData *conData,
                            ConnectionConfig *conConf,
@@ -54,6 +78,7 @@ ViewerWindow::ViewerWindow(WindowsApplication *application,
   m_requiresReconnect(false),
   m_stopped(false)
 {
+  m_fileTransferFolders.paths = conData->getInitialTransferFolders();
   m_standardScale.push_back(10);
   m_standardScale.push_back(15);
   m_standardScale.push_back(25);
@@ -511,6 +536,9 @@ void ViewerWindow::commandNewConnection()
 void ViewerWindow::commandSaveSession()
 {
   TCHAR fileName[MAX_PATH] = _T("");
+  TCHAR temporary[MAX_PATH] = _T("");
+  const bool transferOpen = m_ftDialog && m_ftDialog->isCreated();
+  HWND owner = transferOpen ? m_ftDialog->getControl()->getWindow() : m_hWnd;
 
   StringStorage filterVncFiles(StringTable::getString(IDS_SAVE_SESSION_FILTER_VNC_FILES));
   StringStorage filterAllFiles(StringTable::getString(IDS_SAVE_SESSION_FILTER_ALL_FILES));
@@ -533,42 +561,52 @@ void ViewerWindow::commandSaveSession()
   OPENFILENAME ofn;
   ZeroMemory(&ofn, sizeof(ofn));
   ofn.lStructSize = sizeof(ofn);
-  ofn.hwndOwner = m_hWnd;
+  ofn.hwndOwner = owner;
   ofn.lpstrFilter = &filter.front();
   ofn.lpstrDefExt = _T("vnc");
   ofn.lpstrFile= fileName;
   ofn.nMaxFile = MAX_PATH;
-  ofn.Flags = OFN_OVERWRITEPROMPT;
+  ofn.Flags = OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR | OFN_PATHMUSTEXIST;
   try {
     if (GetSaveFileName(&ofn)) {
-      File oldSettings(fileName);
-      if (oldSettings.exists()) {
-        oldSettings.remove();
+      if (!createSessionTempFile(fileName, temporary)) {
+        throw IOException(_T("Could not create a temporary session file."));
       }
-      IniFileSettingsManager sm(fileName);
+      IniFileSettingsManager sm(temporary);
       sm.setApplicationName(_T("connection"));
 
       StringStorage host;
       m_conData->getReducedHost(&host);
-      sm.setString(_T("host"), host.getString());
-      sm.setUINT(_T("port"), m_conData->getPort());
+      bool saved = sm.setString(_T("host"), host.getString()) &&
+                   sm.setUINT(_T("port"), m_conData->getPort());
 
       if (m_conData->isSetPassword()) {
-        int whetherToSavePass = MessageBox(m_hWnd,
+        int whetherToSavePass = MessageBox(owner,
           StringTable::getString(IDS_QUESTION_SAVE_PASSWORD),
           StringTable::getString(IDS_SECURITY_WARNING_CAPTION),
           MB_YESNO);
         if (whetherToSavePass == IDYES) {
           StringStorage password = m_conData->getCryptedPassword();
-          sm.setString(_T("password"), password.getString());
+          saved = sm.setString(_T("password"), password.getString()) && saved;
         }
       }
 
       sm.setApplicationName(_T("options"));
-      m_conConf->saveToStorage(&sm);
+      saved = m_conConf->saveToStorage(&sm) && saved;
+      FileTransferFolders folders(m_fileTransferFolders.paths);
+      if (transferOpen) {
+        m_ftDialog->getCurrentFolders(&folders);
+      }
+      if (!folders.save(sm) || !saved ||
+          !MoveFileEx(temporary, fileName, MOVEFILE_REPLACE_EXISTING)) {
+        throw IOException(_T("Could not save the session file."));
+      }
     }
   } catch (...) {
+    if (temporary[0] != _T('\0')) DeleteFile(temporary);
     m_logWriter.error(_T("Error in save connection"));
+    MessageBox(owner, _T("Could not save the session file."), _T("2LabVnc Viewer"),
+               MB_OK | MB_ICONERROR);
   }
 }
 
@@ -773,11 +811,15 @@ void ViewerWindow::showFileTransferDialog()
     }
     if (m_ftDialog == 0) {
       _ASSERT(m_fileTransfer != 0);
-      m_ftDialog = new FileTransferMainDialog(m_fileTransfer->getCore());
+      m_ftDialog = new FileTransferMainDialog(m_fileTransfer->getCore(), m_fileTransferFolders);
+      m_ftDialog->setParent(&m_control);
       m_fileTransfer->setInterface(m_ftDialog);
     }
     m_ftDialog->show();
     HWND dialogWnd = m_ftDialog->getControl()->getWindow();
+    if (IsIconic(dialogWnd)) {
+      ShowWindow(dialogWnd, SW_RESTORE);
+    }
     m_application->addModelessDialog(dialogWnd);
   }
 }

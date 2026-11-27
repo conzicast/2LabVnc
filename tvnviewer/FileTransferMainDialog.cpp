@@ -34,8 +34,9 @@
 #include "resource.h"
 #include <stdio.h>
 
-FileTransferMainDialog::FileTransferMainDialog(FileTransferCore *core)
-: FileTransferInterface(core)
+FileTransferMainDialog::FileTransferMainDialog(FileTransferCore *core, SessionFolders &folders)
+: FileTransferInterface(core),
+  m_sessionFolders(folders)
 {
   setResourceId(ftclient_mainDialog);
 
@@ -86,10 +87,22 @@ BOOL FileTransferMainDialog::onInitDialog()
 
   initControls();
 
-  tryListRemoteFolder(_T("/"));
-  tryListLocalFolder(_T(""));
+  StringStorage localFolder(m_sessionFolders.paths.local);
+  if (!tryListLocalFolder(localFolder.getString()) && !localFolder.isEmpty()) {
+    tryListLocalFolder(_T(""));
+  }
+
+  m_restoringRemoteFolder = !m_sessionFolders.paths.remote.isEmpty() &&
+                            !m_sessionFolders.paths.remote.isEqualTo(_T("/"));
+  tryListRemoteFolder(m_restoringRemoteFolder ? m_sessionFolders.paths.remote.getString() : _T("/"));
 
   return TRUE;
+}
+
+void FileTransferMainDialog::getCurrentFolders(FileTransferFolders *folders)
+{
+  getPathToCurrentLocalFolder(&folders->local);
+  folders->remote = m_lastReceivedFileListPath;
 }
 
 BOOL FileTransferMainDialog::onNotify(UINT controlID, LPARAM data)
@@ -193,6 +206,17 @@ BOOL FileTransferMainDialog::onCommand(UINT controlID, UINT notificationID)
   case IDC_DOWNLOAD_BUTTON:
     onDownloadButtonClick();
     break;
+  case IDC_REMEMBER_TRANSFER_FOLDERS:
+    m_sessionFolders.remember = m_rememberFoldersCheckBox.isChecked();
+    if (m_sessionFolders.remember) {
+      getCurrentFolders(&m_sessionFolders.paths);
+    } else {
+      m_sessionFolders.paths = FileTransferFolders();
+    }
+    break;
+  case IDS_TB_SAVESESSION:
+    PostMessage(GetWindow(m_ctrlThis.getWindow(), GW_OWNER), WM_COMMAND, IDS_TB_SAVESESSION, 0);
+    break;
   }
   return TRUE;
 }
@@ -205,13 +229,33 @@ BOOL FileTransferMainDialog::onDestroy()
 void FileTransferMainDialog::onMessageReceived(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
   switch (uMsg) {
+  case WM_GETMINMAXINFO:
+    if (m_minimumWindow.cx > 0) {
+      MINMAXINFO *limits = reinterpret_cast<MINMAXINFO *>(lParam);
+      limits->ptMinTrackSize.x = m_minimumWindow.cx;
+      limits->ptMinTrackSize.y = m_minimumWindow.cy;
+    }
+    break;
+  case WM_SIZE:
+    if (wParam != SIZE_MINIMIZED) {
+      resizeControls();
+    }
+    break;
   case WM_OPERATION_FINISHED:
     m_ftCore->onOperationFinished();
 
     if (!m_isClosing) {
       int state = static_cast<int>(wParam);
       int result = static_cast<int>(lParam);
+      const bool restoreFailed = m_restoringRemoteFolder && result == 0;
+      m_restoringRemoteFolder = false;
       m_ftCore->onUpdateState(state, result);
+
+      if (restoreFailed) {
+        m_sessionFolders.paths.remote.setString(_T(""));
+        tryListRemoteFolder(_T("/"));
+        break;
+      }
 
       setProgress(0.0);
       enableControls(true);
@@ -779,6 +823,8 @@ void FileTransferMainDialog::initControls()
   m_downloadButton.setWindow(GetDlgItem(hwnd, IDC_DOWNLOAD_BUTTON));
 
   m_cancelButton.setWindow(GetDlgItem(hwnd, IDC_CANCEL_BUTTON));
+  m_rememberFoldersCheckBox.setWindow(GetDlgItem(hwnd, IDC_REMEMBER_TRANSFER_FOLDERS));
+  m_rememberFoldersCheckBox.check(m_sessionFolders.remember);
 
   m_copyProgressBar.setWindow(GetDlgItem(hwnd, IDC_TOTAL_PROGRESS));
   m_copyProgressBar.setRange(0, 1000);
@@ -792,6 +838,106 @@ void FileTransferMainDialog::initControls()
   m_remoteFileListView.setWindow(GetDlgItem(hwnd, IDC_REMOTE_FILE_LIST));
 
   m_fileExistDialog.setParent(&m_ctrlThis);
+  initSaveButton();
+  initLayout();
+}
+
+void FileTransferMainDialog::initSaveButton()
+{
+  HWND toolbar = GetDlgItem(m_ctrlThis.getWindow(), IDC_TRANSFER_SAVE_TOOLBAR);
+  HINSTANCE module = GetModuleHandle(NULL);
+  HBITMAP strip = LoadBitmap(module, MAKEINTRESOURCE(IDB_TOOLBAR));
+  BITMAP bitmap = {};
+  if (!strip || !GetObject(strip, sizeof(bitmap), &bitmap)) {
+    if (strip) DeleteObject(strip);
+    return;
+  }
+  DeleteObject(strip);
+
+  SendMessage(toolbar, TB_BUTTONSTRUCTSIZE, sizeof(TBBUTTON), 0);
+  SendMessage(toolbar, TB_SETBITMAPSIZE, 0, MAKELONG(bitmap.bmHeight, bitmap.bmHeight));
+  SendMessage(toolbar, TB_SETMAXTEXTROWS, 0, 0);
+  TBADDBITMAP images = { module, IDB_TOOLBAR };
+  const LRESULT first = SendMessage(toolbar, TB_ADDBITMAP, bitmap.bmWidth / bitmap.bmHeight,
+                                    reinterpret_cast<LPARAM>(&images));
+  if (first < 0) return;
+
+  TBBUTTON button = {};
+  button.iBitmap = static_cast<int>(first) + IDS_TB_SAVESESSION - IDS_TB_NEWCONNECTION;
+  button.idCommand = IDS_TB_SAVESESSION;
+  button.fsState = TBSTATE_ENABLED;
+  button.fsStyle = BTNS_BUTTON;
+  button.iString = reinterpret_cast<INT_PTR>(_T("Save session to a .vnc file"));
+  SendMessage(toolbar, TB_ADDBUTTONS, 1, reinterpret_cast<LPARAM>(&button));
+}
+
+void FileTransferMainDialog::initLayout()
+{
+  HWND dialog = m_ctrlThis.getWindow();
+  RECT outer;
+  GetWindowRect(dialog, &outer);
+  m_minimumWindow.cx = outer.right - outer.left;
+  m_minimumWindow.cy = outer.bottom - outer.top;
+  GetClientRect(dialog, &m_initialClient);
+
+  enum Anchor { Fixed, Center, Edge };
+  // Anchors describe how each edge moves as the client area grows.
+  const struct Layout { UINT id; Anchor left, right, top, bottom; } layout[] = {
+    { IDC_LOCAL_CURRENT_FOLDER_EDIT, Fixed, Center, Fixed, Fixed },
+    { IDC_LOCAL_FILE_LIST, Fixed, Center, Fixed, Edge },
+    { IDC_RENAME_LOCAL_BUTTON, Fixed, Fixed, Edge, Edge },
+    { IDC_MKDIR_LOCAL_BUTTON, Fixed, Fixed, Edge, Edge },
+    { IDC_REMOVE_LOCAL_BUTTON, Fixed, Fixed, Edge, Edge },
+    { IDC_REFRESH_LOCAL_BUTTON, Fixed, Fixed, Edge, Edge },
+    { IDC_UPLOAD_BUTTON, Center, Center, Center, Center },
+    { IDC_DOWNLOAD_BUTTON, Center, Center, Center, Center },
+    { IDC_REMOTE_TRANSFER_LABEL, Center, Center, Fixed, Fixed },
+    { IDC_REMOTE_CURRENT_FOLDER_EDIT, Center, Edge, Fixed, Fixed },
+    { IDC_REMOTE_FILE_LIST, Center, Edge, Fixed, Edge },
+    { IDC_RENAME_REMOTE_BUTTON, Center, Center, Edge, Edge },
+    { IDC_MKDIR_REMOTE_BUTTON, Center, Center, Edge, Edge },
+    { IDC_REMOVE_REMOTE_BUTTON, Center, Center, Edge, Edge },
+    { IDC_REFRESH_REMOTE_BUTTON, Center, Center, Edge, Edge },
+    { IDC_REMEMBER_TRANSFER_FOLDERS, Edge, Edge, Fixed, Fixed },
+    { IDC_TRANSFER_SAVE_TOOLBAR, Edge, Edge, Fixed, Fixed },
+    { IDC_LOG_COMBO, Fixed, Edge, Edge, Edge },
+    { IDC_TOTAL_PROGRESS, Fixed, Edge, Edge, Edge },
+    { IDC_CANCEL_BUTTON, Edge, Edge, Edge, Edge }
+  };
+
+  for (const auto &item : layout) {
+    LayoutControl control = { GetDlgItem(dialog, item.id), {},
+                              item.left, item.right, item.top, item.bottom };
+    GetWindowRect(control.window, &control.bounds);
+    if (item.id == IDC_LOG_COMBO) {
+      SendMessage(control.window, CB_GETDROPPEDCONTROLRECT, 0,
+                  reinterpret_cast<LPARAM>(&control.bounds));
+    }
+    MapWindowPoints(NULL, dialog, reinterpret_cast<POINT *>(&control.bounds), 2);
+    m_layoutControls.push_back(control);
+  }
+}
+
+void FileTransferMainDialog::resizeControls()
+{
+  if (m_layoutControls.empty()) return;
+
+  RECT area;
+  GetClientRect(m_ctrlThis.getWindow(), &area);
+  const int width = (std::max)(0L, area.right - m_initialClient.right);
+  const int height = (std::max)(0L, area.bottom - m_initialClient.bottom);
+  HDWP positions = BeginDeferWindowPos(static_cast<int>(m_layoutControls.size()));
+  for (const auto &control : m_layoutControls) {
+    if (!positions) return;
+
+    const int left = control.bounds.left + width * control.leftAnchor / 2;
+    const int right = control.bounds.right + width * control.rightAnchor / 2;
+    const int top = control.bounds.top + height * control.topAnchor / 2;
+    const int bottom = control.bounds.bottom + height * control.bottomAnchor / 2;
+    positions = DeferWindowPos(positions, control.window, NULL, left, top, right - left,
+                               bottom - top, SWP_NOZORDER | SWP_NOACTIVATE);
+  }
+  if (positions) EndDeferWindowPos(positions);
 }
 
 void FileTransferMainDialog::raise(Exception &ex)
@@ -808,7 +954,7 @@ void FileTransferMainDialog::refreshLocalFileList()
   tryListLocalFolder(pathToFile.getString());
 }
 
-void FileTransferMainDialog::tryListLocalFolder(const TCHAR *pathToFile)
+bool FileTransferMainDialog::tryListLocalFolder(const TCHAR *pathToFile)
 {
   try {
     vector <FileInfo> *localFileList = m_ftCore->getListLocalFolder(pathToFile);
@@ -832,7 +978,10 @@ void FileTransferMainDialog::tryListLocalFolder(const TCHAR *pathToFile)
     m_localCurFolderTextBox.setText(pathToFile);
     // Enable or disable mkdir button depending on isRoot flag
     m_mkDirLocalButton.setEnabled(!isRoot);
-
+    if (m_sessionFolders.remember) {
+      m_sessionFolders.paths.local.setString(pathToFile);
+    }
+    return true;
   } catch (...) {
     StringStorage message;
 
@@ -840,7 +989,7 @@ void FileTransferMainDialog::tryListLocalFolder(const TCHAR *pathToFile)
                    pathToFile);
 
     insertMessageIntoComboBox(message.getString());
-    return;
+    return false;
   }
 }
 
@@ -926,6 +1075,9 @@ void FileTransferMainDialog::getPathToSelectedRemoteFile(StringStorage *out)
 void FileTransferMainDialog::setNothingState()
 {
   m_lastReceivedFileListPath = m_lastSentFileListPath;
+  if (m_sessionFolders.remember) {
+    m_sessionFolders.paths.remote = m_lastReceivedFileListPath;
+  }
   m_remoteCurFolderTextBox.setText(m_lastReceivedFileListPath.getString());
 
   m_remoteFileListView.clear();
